@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "Total Chaos",
+    "slug": "total-chaos-party-game",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "backgroundColor": "#12001F",
+    "icon": "./assets/packed/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "totalchaos",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.totalchaos.party"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/packed/android-icon-foreground.png",
+        "backgroundImage": "./assets/packed/android-icon-background.png",
+        "monochromeImage": "./assets/packed/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.totalchaos.party"
+    },
+    "web": {
+      "backgroundColor": "#12001F",
+      "barStyle": "black-translucent",
+      "favicon": "./assets/packed/favicon.png",
+      "bundler": "metro",
+      "themeColor": "#12001F"
+    },
+    "plugins": [
+      "expo-audio"
+    ]
+  }
+}

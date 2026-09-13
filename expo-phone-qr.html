@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scan with Expo Go</title>
+  <style>
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #12001f;
+      color: #fff8e8;
+      font-family: Segoe UI, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .card {
+      padding: 32px 24px;
+      max-width: 520px;
+    }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    p { margin: 8px 0; color: #d9c5ff; }
+    img {
+      width: min(72vw, 360px);
+      height: auto;
+      background: #fff;
+      padding: 16px;
+      border-radius: 16px;
+      margin: 20px 0;
+    }
+    code {
+      display: block;
+      margin-top: 12px;
+      padding: 12px;
+      background: #2a0a45;
+      border-radius: 10px;
+      word-break: break-all;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Scan with Expo Go</h1>
+    <p>Open Expo Go on your phone and scan this code.</p>
+    <img
+      alt="Expo Go QR code"
+      src="https://api.qrserver.com/v1/create-qr-code/?size=480x480&margin=2&data=exp%3A%2F%2Fb0o50cy-matthewsmart-8081.exp.direct%3A80"
+    />
+    <p>Or paste this URL in Expo Go:</p>
+    <code>exp://b0o50cy-matthewsmart-8081.exp.direct:80</code>
+  </div>
+</body>
+</html>

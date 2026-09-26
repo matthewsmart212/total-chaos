@@ -6,13 +6,10 @@ type SoundName =
   | 'spinnerStop'
   | 'gameSpinnerIntro'
   | 'memeMasterSpinner'
-  | 'lastTapSpinner'
   | 'teleport'
   | 'memeMaster'
   | 'lastTapStanding'
   | 'memeMasterWelcome'
-  | 'lastTapWelcome'
-  | 'lastTapRules'
   | 'memeMasterRulesPart1'
   | 'memeMasterRulesPart2'
   | 'memeMasterCaptionTease'
@@ -31,10 +28,7 @@ type SoundName =
 type NarrationName =
   | 'gameSpinnerIntro'
   | 'memeMasterSpinner'
-  | 'lastTapSpinner'
   | 'memeMasterWelcome'
-  | 'lastTapWelcome'
-  | 'lastTapRules'
   | 'memeMasterRulesPart1'
   | 'memeMasterRulesPart2'
   | 'memeMasterCaptionTease'
@@ -57,12 +51,9 @@ function source(name: SoundName) {
   if (name === 'spinnerStop') return require('../assets/audio/spinner-stop.mp3');
   if (name === 'gameSpinnerIntro') return require('../assets/audio/game-spinner-intro.mp3');
   if (name === 'memeMasterSpinner') return require('../assets/audio/meme-master-spinner.mp3');
-  if (name === 'lastTapSpinner') return require('../assets/audio/last-tap-standing-audio/spinner-intro.mp3');
   if (name === 'memeMaster') return require('../assets/audio/meme-master.mp3');
   if (name === 'lastTapStanding') return require('../assets/audio/last-tap-standing-audio/main-background-song.mp3');
   if (name === 'memeMasterWelcome') return require('../assets/audio/meme-master-welcome.mp3');
-  if (name === 'lastTapWelcome') return require('../assets/audio/last-tap-standing-audio/welcome-intro.mp3');
-  if (name === 'lastTapRules') return require('../assets/audio/last-tap-standing-audio/rules.mp3');
   if (name === 'memeMasterRulesPart1') return require('../assets/audio/meme-master-rules-part-1.mp3');
   if (name === 'memeMasterRulesPart2') return require('../assets/audio/meme-master-rules-part-2.mp3');
   if (name === 'memeMasterCaptionTease') return require('../assets/audio/meme-master-caption-tease.mp3');
@@ -88,8 +79,7 @@ function soundtrackSource() {
 const webPlayers: Partial<Record<SoundName, HTMLAudioElement>> = {};
 const nativePlayers: Partial<Record<SoundName, NativePlayer>> = {};
 const narrationNames: NarrationName[] = [
-  'gameSpinnerIntro', 'memeMasterSpinner', 'lastTapSpinner', 'memeMasterWelcome',
-  'lastTapWelcome', 'lastTapRules',
+  'gameSpinnerIntro', 'memeMasterSpinner', 'memeMasterWelcome',
   'memeMasterRulesPart1', 'memeMasterRulesPart2', 'memeMasterCaptionTease',
   'memeMasterVoting', 'memeMasterFirstPlace', 'memeMasterSecondPlace',
   'memeMasterThirdPlace',
@@ -231,8 +221,7 @@ export function stopAllSounds() {
   stopAllNarration();
   ([
     'click', 'spinner', 'spinnerStop', 'gameSpinnerIntro', 'memeMasterSpinner',
-    'lastTapSpinner', 'teleport', 'memeMaster', 'lastTapStanding', 'memeMasterWelcome',
-    'lastTapWelcome', 'lastTapRules',
+    'teleport', 'memeMaster', 'lastTapStanding', 'memeMasterWelcome',
     'memeMasterRulesPart1', 'memeMasterRulesPart2', 'memeMasterCaptionTease',
     'memeMasterVoting', 'memeMasterFirstPlace', 'memeMasterSecondPlace',
     'memeMasterThirdPlace', 'lockedIn',

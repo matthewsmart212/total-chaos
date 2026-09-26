@@ -1,12 +1,11 @@
 import React from 'react';
 import { Platform, StyleSheet, View, ViewStyle } from 'react-native';
-import Svg, { ClipPath, Defs, FeDropShadow, Filter, G, Image as SvgImage, Polygon } from 'react-native-svg';
+import Svg, { ClipPath, Defs, FeDropShadow, Filter, G, Image as SvgImage, Polygon, Rect, Text as SvgText } from 'react-native-svg';
 
 const background = require('./assets/last-tap/background-clean.webp');
-const logo = require('./assets/last-tap/logo.webp');
 const welcome = require('./assets/last-tap/welcome-hero.webp');
 
-export const LAST_TAP_SPINNER_SOURCES = [background, logo, welcome];
+export const LAST_TAP_SPINNER_SOURCES = [background, welcome];
 
 // Same die-cut as scripts/make-spinner-cards.mjs, in the 390x780 poster space.
 const CARD_WIDTH = 390;
@@ -52,7 +51,7 @@ export default function LastTapSpinnerArtwork({ scale }: Props) {
             } as ViewStyle)
           : null,
       ]}
-      testID="last-tap-spinner-poster"
+      testID="beat-panic-spinner-poster"
     >
       <Svg
         height={height}
@@ -81,21 +80,23 @@ export default function LastTapSpinnerArtwork({ scale }: Props) {
               x="0"
               y="0"
             />
+            <G transform="rotate(-2 195 150)">
+              <Rect x="44" y="50" width="302" height="230" rx="31" fill="#39000f" stroke="#fff1ce" strokeWidth="8" />
+              <Rect x="52" y="58" width="286" height="214" rx="24" fill="#d70c3f" stroke="#ff8aa8" strokeWidth="4" />
+              <SvgText x="195" y="153" textAnchor="middle" fill="#26000b" stroke="#26000b" strokeWidth="8" fontSize="78" fontWeight="900">BEAT</SvgText>
+              <SvgText x="195" y="153" textAnchor="middle" fill="#fff7dc" fontSize="78" fontWeight="900">BEAT</SvgText>
+              <SvgText x="195" y="235" textAnchor="middle" fill="#26000b" stroke="#26000b" strokeWidth="8" fontSize="82" fontWeight="900">PANIC</SvgText>
+              <SvgText x="195" y="235" textAnchor="middle" fill="#ffe34c" fontSize="82" fontWeight="900">PANIC</SvgText>
+            </G>
+            <Rect x="69" y="293" width="252" height="38" rx="19" fill="#26000b" />
+            <SvgText x="195" y="319" textAnchor="middle" fill="#ff9dbc" fontSize="15" fontWeight="800" letterSpacing="2">MISS THE BEAT. MEET DEFEAT.</SvgText>
             <SvgImage
-              height={CARD_HEIGHT * 0.47}
-              href={logo}
-              preserveAspectRatio="xMidYMid meet"
-              width={CARD_WIDTH * 0.86}
-              x={CARD_WIDTH * 0.07}
-              y={CARD_HEIGHT * 0.04}
-            />
-            <SvgImage
-              height={CARD_HEIGHT * 0.48}
+              height={CARD_HEIGHT * 0.43}
               href={welcome}
               preserveAspectRatio="xMidYMid meet"
               width={CARD_WIDTH}
               x="0"
-              y={CARD_HEIGHT * 0.49}
+              y={CARD_HEIGHT * 0.54}
             />
             <Polygon fill="none" points={SILHOUETTE} stroke="#30000d" strokeLinejoin="round" strokeWidth={BORDER.burgundy} />
             <Polygon fill="none" points={SILHOUETTE} stroke="#ff8296" strokeLinejoin="round" strokeWidth={BORDER.pink} />

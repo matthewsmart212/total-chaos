@@ -1,27 +1,18 @@
 import { unlockBeatAudio } from './src/beatAudio';
 import { BeatPanic } from './src/BeatPanic';
-import { GAME_ORDERS, TapRoundMode } from './src/lastTapModel';
 import { useMotionClock } from './src/gameMotion';
 import React, { createContext, ReactNode, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, AppState, Easing, Image, ImageSourcePropType, Modal, Platform, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BODY_FONT, DISPLAY_FONT } from './src/brand';
 import { MonsterId } from './src/monsterTypes';
-import { createTapPlayers, eliminatePlayer, formatReaction, LastTapPhase, makeSnapSequence, makeTapSequence, modeForRound, reactionAt, resolveTapRound, simulateRivals, SNAP_CARDS, SnapCardId, TAP_PACING, TapPlayer, TapResult, TapRound, TargetId, targetForRound, TARGETS } from './src/lastTapModel';
+import { createTapPlayers, eliminatePlayer, formatReaction, LastTapPhase, resolveTapRound, simulateRivals, TAP_PACING, TapPlayer, TapResult, TapRound } from './src/lastTapModel';
 import { playSound } from './src/sounds';
-import { fadeLastTapMusicTo, playNarration, stopAllNarration, stopSound } from '../src/sounds';
+import { fadeLastTapMusicTo } from '../src/sounds';
 import { predictionPoints, lastTapScoreRows } from './src/lastTapModel';
-import { eliminationQuip, reactionQuip, REVEAL_BEATS, tapRevealTiming, FINALE_BEATS } from './src/lastTapPresentation';
+import { eliminationQuip, REVEAL_BEATS, tapRevealTiming, FINALE_BEATS } from './src/lastTapPresentation';
 
 type Prediction = { pick: MonsterId | null; points: number };
-type RoundSequence =
-  | {mode:'target';cards:TargetId[];intervalMs:number}
-  | {mode:'snap';cards:SnapCardId[];intervalMs:number;snapIndex:number};
-const GameOrderContext=createContext<readonly TapRoundMode[]>(GAME_ORDERS[0]);
-const gameLabels={target:'Target',snap:'Snap',beat:'Beat'};
-const sequenceForRound=(round:number,order:readonly TapRoundMode[]=GAME_ORDERS[0]):RoundSequence=>modeForRound(round,order)==='snap'
-  ? {mode:'snap',...makeSnapSequence(round)}
-  : {mode:'target',...makeTapSequence(targetForRound(round),round)};
 
 // Artwork is assembled in layers. Every card, name, time, countdown, X and
 // action is live React Native UI; no whole-screen mockup is used at runtime.
@@ -32,10 +23,8 @@ export const LAST_TAP_ART = {
   crown: require('./assets/last-tap/finale-crown.webp'),
   finaleArena: require('./assets/last-tap/finale-arena.webp'),
   finaleBurst: require('./assets/last-tap/finale-burst.webp'),
-  logo: require('./assets/last-tap/logo.webp'),
   welcome: require('./assets/last-tap/welcome-hero.webp'),
   eliminated: require('./assets/last-tap/eliminated-scene.webp'),
-  practice: require('./assets/last-tap/practice-scene.webp'),
 };
 const avatars: Record<MonsterId, ImageSourcePropType> = {
   grumble: require('./assets/meme-master-blue/avatar-grumble.webp'),
@@ -52,16 +41,6 @@ const monsters: Record<MonsterId, ImageSourcePropType> = {
   brrr: require('./assets/monsters/brrr.webp'), peepers: require('./assets/monsters/peepers.webp'),
   dozy: require('./assets/monsters/dozy.webp'), bop: require('./assets/monsters/bop.webp'),
   snicker: require('./assets/monsters/snicker.webp'), scraps: require('./assets/monsters/scraps.webp'),
-};
-const tapPoses: Record<MonsterId, ImageSourcePropType> = {
-  grumble: require('./assets/last-tap/poses/tap-grumble.webp'),
-  snicker: require('./assets/last-tap/poses/tap-snicker.webp'),
-  gloop: require('./assets/last-tap/poses/tap-gloop.webp'),
-  brrr: require('./assets/last-tap/poses/tap-brrr.webp'),
-  scraps: require('./assets/last-tap/poses/tap-scraps.webp'),
-  dozy: require('./assets/last-tap/poses/tap-dozy.webp'),
-  peepers: require('./assets/last-tap/poses/tap-peepers.webp'),
-  bop: require('./assets/last-tap/poses/tap-bop.webp'),
 };
 const battlePoses: Record<MonsterId, ImageSourcePropType> = {
   grumble: require('./assets/last-tap/poses/battle-grumble.webp'),
@@ -107,30 +86,7 @@ const eliminatedMonsters: Record<MonsterId, ImageSourcePropType> = {
   dozy: require('./assets/last-tap/upset-dozy.webp'), bop: require('./assets/last-tap/upset-bop.webp'),
   snicker: require('./assets/last-tap/upset-snicker.webp'), scraps: require('./assets/last-tap/upset-scraps.webp'),
 };
-const tapObjects: Record<TargetId,{source:ImageSourcePropType;name:string}> = {
-  toast: {source:require('./assets/last-tap/targets/toast.webp'),name:'TOAST IN PANTS'},
-  banana: {source:require('./assets/last-tap/targets/banana.webp'),name:'BANANA DRAMA'},
-  toilet: {source:require('./assets/last-tap/targets/toilet.webp'),name:'THE THRONE'},
-  broccoli: {source:require('./assets/last-tap/targets/broccoli.webp'),name:'DISCO BROCCOLI'},
-  sock: {source:require('./assets/last-tap/targets/sock.webp'),name:'SOCK SHOCK'},
-  teacup: {source:require('./assets/last-tap/targets/teacup.webp'),name:'PROTEIN TEA'},
-  pizza: {source:require('./assets/last-tap/targets/pizza.webp'),name:'PIZZA INVASION'},
-  pigeon: {source:require('./assets/last-tap/targets/pigeon.webp'),name:'BUSINESS PIGEON'},
-};
-const snapCards: Record<SnapCardId,{source:ImageSourcePropType;name:string}> = {
-  toaster:{source:require('./assets/last-tap/snap/snap-toaster.webp'),name:'FURIOUS TOASTER'},
-  broccoli:{source:require('./assets/last-tap/snap/snap-broccoli.webp'),name:'DISCO BROCCOLI'},
-  pigeon:{source:require('./assets/last-tap/snap/snap-pigeon.webp'),name:'SUSPICIOUS PIGEON'},
-  toilet:{source:require('./assets/last-tap/snap/snap-toilet.webp'),name:'ROYAL TOILET'},
-  banana:{source:require('./assets/last-tap/snap/snap-banana.webp'),name:'DRAMA BANANA'},
-  teacup:{source:require('./assets/last-tap/snap/snap-teacup.webp'),name:'MUSCLE TEA'},
-  sock:{source:require('./assets/last-tap/snap/snap-sock.webp'),name:'PANIC SOCK'},
-  duck:{source:require('./assets/last-tap/snap/snap-duck.webp'),name:'COOL DUCK'},
-};
-const SNAP_BACK = require('./assets/last-tap/snap/snap-back.webp');
-const objectSource = (id:TargetId) => tapObjects[id].source;
-const objectName = (id:TargetId) => tapObjects[id].name;
-export const LAST_TAP_IMAGE_SOURCES = [...Object.values(LAST_TAP_ART), ...Object.values(tapObjects).map(item=>item.source), ...Object.values(snapCards).map(item=>item.source), SNAP_BACK, ...Object.values(monsters), ...Object.values(eliminatedMonsters), ...Object.values(avatars), ...Object.values(tapPoses), ...Object.values(battlePoses), ...Object.values(victoryPoses)];
+export const LAST_TAP_IMAGE_SOURCES = [...Object.values(LAST_TAP_ART), ...Object.values(monsters), ...Object.values(eliminatedMonsters), ...Object.values(avatars), ...Object.values(battlePoses), ...Object.values(victoryPoses)];
 const INK = '#320008', CREAM = '#fff7dc', GOLD = '#ffe34c', RED = '#ff123b';
 const FILL = { ...StyleSheet.absoluteFill, width: '100%' as const, height: '100%' as const };
 const ScreenMotion = createContext<{clock: Animated.Value | null; enabled: boolean}>({clock:null, enabled:false});
@@ -184,7 +140,18 @@ function SurvivalBar({ players, localId, y = 731 }: { players: TapPlayer[]; loca
     {players.map(p => <View key={p.id} accessibilityLabel={`${p.name}, ${p.eliminatedRound === null ? 'still standing' : 'eliminated'}`} style={{ flex: 1, minWidth: 0, alignItems: 'center', gap: 5 * m.unit }}><Avatar id={p.id} size={39 * m.unit} out={p.eliminatedRound !== null} selected={p.id === localId && p.eliminatedRound === null} /><Copy size={11.5} style={{width:'100%'}} color={p.eliminatedRound !== null ? '#c39296' : p.id === localId ? GOLD : CREAM} lines={1}>{p.name}</Copy></View>)}
   </Box>;
 }
-function Logo({ large = false }: { large?: boolean }) { return <Art source={LAST_TAP_ART.logo} x={large ? 14 : 109} y={large ? 16 : 12} w={large ? 362 : 172} h={large ? 329 : 109} />; }
+function Logo({ large = false }: { large?: boolean }) {
+  const m=useContext(Layout);
+  return <Box x={large?29:96} y={large?22:14} w={large?332:198} h={large?286:112} decorative>
+    <View style={{flex:1,alignItems:'center',justifyContent:'center',transform:[{rotate:'-2deg'}]}}>
+      <LinearGradient colors={['#ff7299','#ef1244','#970027']} style={{width:'96%',borderRadius:large?34*m.unit:20*m.unit,borderWidth:4*m.unit,borderColor:'#fff1ce',paddingVertical:(large?16:7)*m.unit,paddingHorizontal:10*m.unit,boxShadow:`0 ${8*m.unit}px 0 #26000b, 0 0 ${22*m.unit}px #ff336888`}}>
+        <Copy size={large?72:38} color="#fff7dc" lines={1} style={{textShadowColor:'#26000b',textShadowOffset:{width:0,height:5*m.unit},textShadowRadius:1}}>BEAT</Copy>
+        <Copy size={large?78:42} color={GOLD} lines={1} style={{marginTop:(large?-8:-5)*m.unit,textShadowColor:'#26000b',textShadowOffset:{width:0,height:5*m.unit},textShadowRadius:1}}>PANIC</Copy>
+      </LinearGradient>
+      <View style={{marginTop:(large?10:4)*m.unit,backgroundColor:'#26000bd9',borderRadius:16*m.unit,paddingHorizontal:16*m.unit,paddingVertical:4*m.unit}}><Copy size={large?18:11} color="#ff9dbc" style={{letterSpacing:2*m.unit}}>MISS THE BEAT. MEET DEFEAT.</Copy></View>
+    </View>
+  </Box>;
+}
 
 // Live lettering and enamel surfaces shared by the stage and watch party.
 function ComicCopy({children, size = 42, lines = 1}: {children:ReactNode; size?:number; lines?:number}) {
@@ -248,99 +215,6 @@ function WinnerConfetti({paused}: {paused:boolean}) {
   })}</View>;
 }
 
-function Arena({preview=false,blocked,target,current,lockedOut,onTap}: {preview?:boolean;blocked:boolean;target:TargetId;current:TargetId;lockedOut:boolean;onTap:()=>void}) {
-    const metrics=useContext(Layout);
-    return <Box x={48} y={267} w={294} h={294}>
-      <Pressable testID="last-tap-arena" accessibilityRole="button" accessibilityLabel={preview ? `Remember ${objectName(target)}` : 'Tap the image when it matches your target'} disabled={preview || blocked} onPressIn={onTap} onPress={event => { if (Platform.OS === 'web' && (event.nativeEvent as any).detail === 0) onTap(); }} style={{ flex: 1, borderRadius: 26 * metrics.unit, borderWidth: 4 * metrics.unit, borderColor: lockedOut ? '#ff0055' : CREAM, backgroundColor: preview ? '#fff4d4' : '#250008', boxShadow: `0 0 ${18 * metrics.unit}px ${lockedOut ? '#ff0055' : '#ff6a22'}, inset 0 0 ${20 * metrics.unit}px #ff174433`, ...(Platform.OS === 'web' ? { touchAction: 'manipulation', userSelect: 'none' } as any : {}) }}>
-        {TARGETS.map(id => <Image key={id} source={objectSource(id)} resizeMode="contain" style={{position:'absolute',width:'84%',height:preview?'78%':'85%',left:'8%',top:preview?'4%':'7.5%',opacity:(preview?target:current)===id?1:0}}/>)}
-        {preview && <View style={{ position: 'absolute', bottom: 14 * metrics.unit, width: '100%' }}><Copy size={21} color={INK}>{objectName(target)}</Copy></View>}
-        {lockedOut && <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: '#7d002dcd', borderRadius: 21 * metrics.unit, alignItems: 'center', justifyContent: 'center' }]}><Copy size={40}>WRONG ONE!</Copy><Copy size={18}>Easy, eager beaver.</Copy></View>}
-      </Pressable>
-    </Box>;
-  }
-
-function SnapPileCard({id,position,preview,blocked,reducedMotion}: {id:SnapCardId;position:number;preview:boolean;blocked:boolean;reducedMotion:boolean}) {
-  const m=useContext(Layout);
-  // Each physical card owns its arrival. Adding another card never restarts or
-  // repositions anything already on the table.
-  const deal=useRef(new Animated.Value(preview||reducedMotion?1:0)).current;
-  const landedAngle=[-10,9,-7,11,-9,7][position%6];
-  const shift=[-16,17,-10,13,-14,10][position%6];
-  const depth=Math.min(position,24)*.45;
-  useLayoutEffect(()=>{
-    if(preview||reducedMotion){deal.setValue(1);return;}
-    if(blocked)return;
-    const animation=Animated.timing(deal,{toValue:1,duration:220,easing:Easing.out(Easing.cubic),useNativeDriver:true});
-    animation.start();
-    return ()=>animation.stop();
-  },[preview,blocked,reducedMotion,deal]);
-  return <Animated.View testID={`snap-pile-card-${position}`} style={{position:'absolute',zIndex:position,left:(61+shift)*m.sx,top:(28+depth)*m.sy,width:186*m.sx,height:250*m.sy,opacity:1,transform:[
-    {translateX:deal.interpolate({inputRange:[0,.82,1],outputRange:[-280*m.sx,4*m.sx,0],extrapolate:'clamp'})},
-    {translateY:deal.interpolate({inputRange:[0,.82,1],outputRange:[-26*m.sy,-2*m.sy,0],extrapolate:'clamp'})},
-    {rotate:deal.interpolate({inputRange:[0,1],outputRange:[`${landedAngle-14}deg`,`${landedAngle}deg`],extrapolate:'clamp'})},
-  ]}}>
-    {/* Clip the opaque artwork corners; a solid rim also covers the image's
-        uneven outer margins without leaving rectangular shadows in the pile. */}
-    <View style={{flex:1,overflow:'hidden',borderRadius:17*m.unit,backgroundColor:'#fff5d5'}}>
-      <Image source={snapCards[id].source} resizeMode="stretch" style={FILL}/>
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill,{borderRadius:17*m.unit,borderWidth:7*m.unit,borderColor:'#fff5d5'}]}/>
-    </View>
-  </Animated.View>;
-}
-
-function ChaosSnapArena({preview=false,blocked,cards,index,lockedOut,reducedMotion=false,y=260}: {preview?:boolean;blocked:boolean;cards:SnapCardId[];index:number;lockedOut:boolean;reducedMotion?:boolean;y?:number}) {
-  const m=useContext(Layout);
-  const demo:SnapCardId='duck';
-  // Alternating slants expose the previous card's sides and corners.
-  const visible=preview?[demo,demo]:cards.slice(0,index+1);
-  const isSnap=!preview&&index>0&&cards[index]===cards[index-1];
-  return <Box x={38} y={y} w={314} h={315}>
-    <View testID="chaos-snap-arena" accessibilityLabel={preview?'Tap when two identical cards land in a row':isSnap?'Two cards match. Snap now!':'Cards do not match'} style={{flex:1,borderRadius:28*m.unit,borderWidth:3*m.unit,borderColor:lockedOut?'#ff174a':isSnap?'#ffe34c':'#ff8fab',backgroundColor:'#210008d9',boxShadow:`0 0 ${(isSnap?28:17)*m.unit}px ${isSnap?'#ffd63b99':'#ff225955'}, inset 0 0 ${24*m.unit}px #ff174422`,overflow:'hidden'}}>
-      {visible.map((id,i)=><SnapPileCard key={`${preview?'preview':'deal'}-${i}-${id}`} id={id} position={i} preview={preview} blocked={blocked} reducedMotion={reducedMotion}/>)}
-      {preview&&<View style={{position:'absolute',zIndex:100,left:12*m.sx,right:12*m.sx,bottom:8*m.sy,height:40*m.sy,borderRadius:20*m.unit,backgroundColor:'#36000fe8',justifyContent:'center'}}><Copy size={19} color={GOLD}>SAME CARD TWICE = SNAP</Copy></View>}
-      {lockedOut&&<View pointerEvents="none" style={[StyleSheet.absoluteFill,{zIndex:100,backgroundColor:'#730021db',alignItems:'center',justifyContent:'center'}]}><Copy size={42}>NOT A SNAP!</Copy><Copy size={18}>Your thumb got overexcited.</Copy></View>}
-    </View>
-  </Box>;
-}
-
-function PracticePad({ blocked }: { blocked: boolean }) {
-  const { unit } = useContext(Layout);
-  const [state, setState] = useState<'idle' | 'waiting' | 'ready' | 'done'>('idle');
-  const [message, setMessage] = useState('Tap to start practising');
-  const [best, setBest] = useState<number | null>(null);
-  const displayedAt = useRef<number | null>(null);
-  useEffect(() => {
-    if (blocked) { displayedAt.current = null; setState('idle'); setMessage('Tap to start again'); return; }
-    if (state !== 'waiting') return;
-    const timer = setTimeout(() => setState('ready'), 1000 + Math.random() * 2200);
-    return () => clearTimeout(timer);
-  }, [state, blocked]);
-  useLayoutEffect(() => {
-    if (state !== 'ready' || blocked) return;
-    const frame = requestAnimationFrame(() => { displayedAt.current = performance.now(); });
-    const timeout = setTimeout(() => { displayedAt.current = null; setMessage('Missed it! Try again.'); setState('done'); }, 2500);
-    return () => { cancelAnimationFrame(frame); clearTimeout(timeout); };
-  }, [state, blocked]);
-  function press() {
-    if (blocked) return;
-    if (state === 'waiting') { setState('done'); setMessage('Too soon! Wait for the toast.'); return; }
-    if (state === 'ready') {
-      if (displayedAt.current === null) return;
-      const ms = Math.max(1, Math.round(performance.now() - displayedAt.current));
-      displayedAt.current = null; setBest(old => old === null ? ms : Math.min(old, ms));
-      setMessage(`${ms} ms — tap to try again`); setState('done'); return;
-    }
-    setMessage('Wait for the toast…'); setState('waiting');
-  }
-  return <Pressable accessibilityRole="button" accessibilityLabel={state === 'ready' ? 'Toast! Tap now' : message} disabled={blocked} onPressIn={press} style={{flex:1, borderRadius:22 * unit, borderWidth:3 * unit, borderColor:CREAM, backgroundColor:'#fff1cf', alignItems:'center', justifyContent:'space-around', padding:10 * unit}}>
-    <Copy size={24} color={INK}>PRACTICE TAP</Copy>
-    {state === 'ready' ? <Image source={objectSource('toast')} style={{width:110 * unit, height:110 * unit}} resizeMode="contain"/> : <Copy size={55} color={RED}>{state === 'waiting' ? '…' : '↻'}</Copy>}
-    <Copy size={16} color={INK} body>{state === 'ready' ? 'TAP NOW!' : message}</Copy>
-    <Copy size={17} color={INK}>PERSONAL BEST: {best === null ? '—' : formatReaction(best)}</Copy>
-
-  </Pressable>;
-}
-
 // Shared arena geometry keeps the intro and result reveal in the same visual world.
 function DuelLighting({clock,reduced,crowned=false}: {clock:Animated.Value;reduced:boolean;crowned?:boolean}) {
   const m=useContext(Layout);
@@ -358,7 +232,7 @@ function FinalShowdown({finalists,seconds,paused}: {finalists:TapPlayer[];second
   return <ScreenMotion.Provider value={{clock:null,enabled:false}}><View testID="final-showdown-intro" style={[StyleSheet.absoluteFill,{overflow:'hidden'}]}>
     <Image source={LAST_TAP_ART.finaleArena} resizeMode="stretch" style={FILL}/>
     <DuelLighting clock={clock} reduced={reduced}/>
-    <Art source={LAST_TAP_ART.logo} x={128} y={22} w={134} h={103}/>
+    <Logo />
     <Box x={30} y={153} w={330} h={26}><Copy size={17} color={GOLD} style={{letterSpacing:3*m.unit}}>FINAL SHOWDOWN</Copy></Box>
     <Heading x={16} y={194} w={358} h={105} size={45}>{'TWO THUMBS.\nONE CROWN.'}</Heading>
     <Animated.View pointerEvents="none" style={{position:'absolute',left:194*m.sx,top:323*m.sy,width:2*m.unit,height:290*m.sy,backgroundColor:'#ff83ae',boxShadow:`0 0 ${18*m.unit}px #ff276e`,opacity:.65,transform:[{rotate:'18deg'}]}}/>
@@ -373,7 +247,6 @@ function FinalShowdown({finalists,seconds,paused}: {finalists:TapPlayer[];second
 }
 
 function FinaleReveal({result,players,playerId,bonusPoints,paused,onSettled,onReplay,onFinish}: {result:TapRound;players:TapPlayer[];playerId:MonsterId;bonusPoints:number;paused:boolean;onSettled:()=>void;onReplay:()=>void;onFinish:()=>void}) {
-  const order=useContext(GameOrderContext);
   const m=useContext(Layout), b=FINALE_BEATS;
   const settled=useRef(false), cues=useRef(new Set<number>());
   const {clock,now,reduced}=useMotionClock(result.tied?b.tieEnd:b.end,paused,()=>{if(result.tied)onReplay();},time=>{
@@ -396,10 +269,10 @@ function FinaleReveal({result,players,playerId,bonusPoints,paused,onSettled,onRe
     {!result.tied&&!reduced&&<Animated.View testID="finale-impact-ring" pointerEvents="none" style={{position:'absolute',left:(finalists.findIndex(p=>p.id===result.eliminatedId)===0?22:212)*m.sx,top:418*m.sy,width:150*m.sx,height:150*m.sx,borderRadius:100*m.sx,borderWidth:3*m.unit,borderColor:'#ff9eb9',boxShadow:`0 0 ${22*m.unit}px #ff206b`,opacity:v([b.stamp,b.stamp+80,b.stamp+600],[0,.85,0]),transform:[{scale:v([b.stamp,b.stamp+600],[.25,2.4])}]}}/>}
     {/* A feathered glow replaces the old rectangular yellow overlay. */}
     {!result.tied&&<Animated.View pointerEvents="none" style={{position:'absolute',left:-20*m.sx,top:275*m.sy,width:430*m.sx,height:430*m.sy,opacity:v([b.champion-100,b.champion+900,b.scores,b.scores+500],[0,.85,.85,.15]),transform:reduced?[]:[{scale:v([b.champion,b.champion+900,b.scores],[.35,1.08,1])},{rotate:v([b.champion,b.scores],['-12deg','8deg'])}]}}><Image source={LAST_TAP_ART.finaleBurst} resizeMode="contain" style={FILL}/></Animated.View>}
-    <Image source={LAST_TAP_ART.logo} resizeMode="contain" style={{position:'absolute',left:128*m.sx,top:22*m.sy,width:134*m.sx,height:103*m.sy}}/>
+    <Logo />
     {!recap&&<Animated.View style={[StyleSheet.absoluteFill,{opacity:result.tied||reduced?1:v([b.scores-500,b.scores],[1,0]),transform:result.tied||reduced?[]:[{translateY:v([b.scores-500,b.scores],[0,-20*m.sy])}]}]}>
       <Animated.View style={{position:'absolute',left:18*m.sx,top:156*m.sy,width:354*m.sx,opacity:reduced?1:result.tied?v([0,550,3800,3950,4050,4300],[0,1,1,0,0,1]):v([0,550,5700,5950,6050,6350,7750,7950,8050,8350,b.champion-300,b.champion-80,b.champion+80,b.champion+500],[0,1,1,0,0,1,1,0,0,1,1,0,0,1])}}>
-        <Copy size={15} color={GOLD} style={{letterSpacing:3*m.unit,marginBottom:16*m.sy}}>{crowned?'LAST TAP STANDING':now>=b.stamp&&!result.tied?'THE FINAL ELIMINATION':'THE FINAL RESULT'}</Copy>
+        <Copy size={15} color={GOLD} style={{letterSpacing:3*m.unit,marginBottom:16*m.sy}}>{crowned?'BEAT PANIC CHAMPION':now>=b.stamp&&!result.tied?'THE FINAL ELIMINATION':'THE FINAL RESULT'}</Copy>
         <ComicCopy size={crowned?43:44} lines={2}>{crowned?`${winner?.name} WINS!`:result.tied&&now>=4000?'A PHOTO FINISH!':now>=b.stamp?'TOO SLOW.':now>=6000?'AND THE\nCROWN GOES TO…':'WHO TAKES\nTHE CROWN?'}</ComicCopy>
         <Copy size={18} color={crowned?GOLD:'#ffadc7'} style={{marginTop:14*m.sy}}>{crowned?'HUMILITY NOT INCLUDED.':result.tied&&now>=4000?'Same time. Same egos. Rematch.':now>=b.stamp?'One thumb has left the chat.':'Somebody is about to get unbearable.'}</Copy>
       </Animated.View>
@@ -418,13 +291,13 @@ function FinaleReveal({result,players,playerId,bonusPoints,paused,onSettled,onRe
       })}
       {crowned&&<>
         <WinnerConfetti paused={paused}/>
-        <Box x={35} y={680} w={320} h={136}><EnamelPanel selected style={{height:'100%'}}><View testID="winner-result-content" style={{flex:1,paddingVertical:14*m.sy,paddingHorizontal:14*m.sx,alignItems:'center',justifyContent:'center',gap:6*m.sy}}><Copy size={16} color="#ffe4a6">{modeForRound(result.round,order)==='beat'?'WINNING TIMING ERROR':'THE WINNING TAP'}</Copy><Copy size={36} color={GOLD}>{formatReaction(winnerTime)}</Copy><Copy size={18}>+{reduced?100:Math.round(100*Math.min(1,Math.max(0,(now-b.champion-900)/1000)))} POINTS</Copy></View></EnamelPanel></Box>
+        <Box x={35} y={680} w={320} h={136}><EnamelPanel selected style={{height:'100%'}}><View testID="winner-result-content" style={{flex:1,paddingVertical:14*m.sy,paddingHorizontal:14*m.sx,alignItems:'center',justifyContent:'center',gap:6*m.sy}}><Copy size={16} color="#ffe4a6">WINNING TIMING ERROR</Copy><Copy size={36} color={GOLD}>{formatReaction(winnerTime)}</Copy><Copy size={18}>+{reduced?100:Math.round(100*Math.min(1,Math.max(0,(now-b.champion-900)/1000)))} POINTS</Copy></View></EnamelPanel></Box>
       </>}
       {result.tied&&now>=4000?<Box x={93} y={745} w={204} h={66} style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:14*m.unit}}><CountdownDial size={63} total={5} value={Math.max(1,Math.ceil((b.tieEnd-now)/1000))} running={!paused}/><Copy size={20}>REMATCH IN</Copy></Box>:!crowned?<Box x={25} y={758} w={340} h={40}><Copy size={19} color="#ffafc8">{now>=b.stamp?'A devastating day for that ego.':'Hold your breath. Blame your thumb.'}</Copy></Box>:null}
     </Animated.View>}
     {recap&&<Animated.View testID="finale-score-recap" style={[StyleSheet.absoluteFill,{opacity:reduced?1:v([b.scores,b.scores+550],[0,1]),transform:reduced?[]:[{translateY:v([b.scores,b.scores+550],[24*m.sy,0])}]}]}>
       <Heading x={17} y={165} w={356} h={88} size={38}>{'THE CHAOS\nPAYS OFF'}</Heading>
-      <Pill x={38} y={259} w={314} h={34}><Copy size={16} color={GOLD} lines={1}>★ {winner?.name} · LAST TAP STANDING</Copy></Pill>
+      <Pill x={38} y={259} w={314} h={34}><Copy size={16} color={GOLD} lines={1}>★ {winner?.name} · BEAT PANIC CHAMPION</Copy></Pill>
       <Panel x={17} y={recapTop} w={356} h={recapHeight}><View style={{flex:1,padding:5*m.unit}}>
         <View style={{height:27*m.sy,flexDirection:'row',alignItems:'center',paddingHorizontal:5*m.sx}}><Copy size={13} color={INK} style={{flex:1,textAlign:'left'}}>POINTS EARNED</Copy>{['SURV.','BONUS','TOTAL'].map((label,i)=><Copy key={label} size={11} color="#793345" style={{width:(i===2?49:40)*m.sx}}>{label}</Copy>)}</View>
         {scoreRows.map((p,i)=>{
@@ -451,7 +324,6 @@ function SurvivorAward({player, index, paused}: {player:TapPlayer; index:number;
 }
 
 function ResultsReveal({result, players, playerId, paused, revealed, onRevealed, onContinue, prediction = null}: {result:TapRound; players:TapPlayer[]; playerId:MonsterId; paused:boolean; revealed:boolean; onRevealed:()=>void; onContinue:()=>void; prediction?:Prediction|null}) {
-  const order=useContext(GameOrderContext);
   const m = useContext(Layout);
   const rows = result.results;
   const rowHeight = rows.length > 6 ? 43 : 48;
@@ -481,9 +353,9 @@ function ResultsReveal({result, players, playerId, paused, revealed, onRevealed,
   return <>
     <View style={StyleSheet.absoluteFill} accessibilityElementsHidden={showSpotlight} importantForAccessibility={showSpotlight?'no-hide-descendants':'auto'}>
     <Logo />
-    <Heading x={20} y={132} w={350} h={59} size={36}>{modeForRound(result.round,order)==='beat'?'RHYTHM CHECK':'REACTION RANKINGS'}</Heading>
-    <Box x={30} y={201} w={330} h={28}><Copy size={18} color="#ffb0c3">{modeForRound(result.round,order)==='beat'?'Some of you fought the music.':'Big talk. Actual numbers.'}</Copy></Box>
-    <Pill x={65} y={250} w={260} h={36}><Copy size={16} color={GOLD} lines={1}>{modeForRound(result.round,order)==='beat'?'TIMING ERROR · LOWER IS BETTER':`REACTION TIMES · ROUND ${result.round}`}</Copy></Pill>
+    <Heading x={20} y={132} w={350} h={59} size={36}>RHYTHM CHECK</Heading>
+    <Box x={30} y={201} w={330} h={28}><Copy size={18} color="#ffb0c3">Some of you fought the music.</Copy></Box>
+    <Pill x={65} y={250} w={260} h={36}><Copy size={16} color={GOLD} lines={1}>TIMING ERROR · LOWER IS BETTER</Copy></Pill>
     <Panel x={20} y={tableTop+14} w={350} h={tableHeight}><View style={{flex:1,padding:5*m.unit,gap:3*m.unit}}>
       <View pointerEvents="none" style={[StyleSheet.absoluteFill,{padding:5*m.unit,gap:3*m.unit}]}>{rows.map((_,i)=><View key={i} style={{flex:1,borderRadius:11*m.unit,backgroundColor:i%2?'#ffe8d8':'#fff6e8',borderWidth:m.unit,borderColor:'#efd4b8',flexDirection:'row',alignItems:'center',paddingHorizontal:11*m.unit}}><Copy size={17} color="#c5a38a">{i+1}</Copy><View style={{marginLeft:12*m.unit,width:29*m.unit,height:29*m.unit,borderRadius:20*m.unit,backgroundColor:'#e9d4bf'}}/><View style={{marginLeft:12*m.unit,width:90*m.unit,height:8*m.unit,borderRadius:6*m.unit,backgroundColor:'#e9d4bf'}}/></View>)}</View>
       {rows.map((r,i)=><Animated.View key={r.id} testID="last-tap-result-row" style={{flex:1,flexDirection:'row',alignItems:'center',gap:7*m.unit,paddingHorizontal:8*m.unit,borderRadius:11*m.unit,borderWidth:m.unit,borderColor:done&&r.id===loser?'#ee6980':r.id===playerId?'#edb534':'#e9cdb5',backgroundColor:done&&r.id===loser?'#ffd1d8':r.id===playerId?'#fff0a5':i%2?'#ffecdf':'#fff9ee',opacity:done||reduced?1:v([REVEAL_BEATS.firstRow+i*REVEAL_BEATS.rowStagger,REVEAL_BEATS.firstRow+i*REVEAL_BEATS.rowStagger+REVEAL_BEATS.rowArrival],[0,1]),transform:done||reduced?[]:[{translateX:v([REVEAL_BEATS.firstRow+i*REVEAL_BEATS.rowStagger,REVEAL_BEATS.firstRow+i*REVEAL_BEATS.rowStagger+REVEAL_BEATS.rowArrival],[30,0])}]}}>
@@ -497,12 +369,12 @@ function ResultsReveal({result, players, playerId, paused, revealed, onRevealed,
       <Image source={LAST_TAP_ART.stage} resizeMode="stretch" style={FILL}/>
     </Animated.View>
     {showSpotlight && <View pointerEvents="none" style={[StyleSheet.absoluteFill,{zIndex:31}]}>
-      <Image source={LAST_TAP_ART.logo} resizeMode="contain" style={{position:'absolute',left:105*m.sx,top:32*m.sy,width:180*m.sx,height:121*m.sy}}/>
+      <Logo />
       {!done && loser && <>
         <Animated.View style={{position:'absolute',left:20*m.sx,top:185*m.sy,width:350*m.sx,opacity:v([spotlightAt+150,spotlightAt+450,kickAt,kickAt+480],[0,1,1,0]),transform:reduced?[]:[{translateY:v([spotlightAt+150,spotlightAt+450,kickAt,kickAt+480],[-18*m.sy,0,0,-24*m.sy])}]}}>
-          <Copy size={14} color="#ff9dbb" style={{letterSpacing:3*m.unit,marginBottom:11*m.unit}}>{modeForRound(result.round,order)==='beat'?'RHYTHM HAS LEFT THE CHAT':'THE LAST REACTION'}</Copy>
+          <Copy size={14} color="#ff9dbb" style={{letterSpacing:3*m.unit,marginBottom:11*m.unit}}>RHYTHM HAS LEFT THE CHAT</Copy>
           <ComicCopy size={47}>{name}</ComicCopy>
-          <Copy size={20} color="#ff9dbb" style={{marginTop:15*m.unit}}>{now>=stampAt?(rows.at(-1)?.ms==null?'NO TAP. BOLD STRATEGY.':`${formatReaction(rows.at(-1)?.ms)} · ${modeForRound(result.round,order)==='beat'?'MOST TIMING ERROR':'LAST TO TAP'}`):'Your moment of shame.'}</Copy>
+          <Copy size={20} color="#ff9dbb" style={{marginTop:15*m.unit}}>{now>=stampAt?(rows.at(-1)?.ms==null?'NO BEAT. BOLD STRATEGY.':`${formatReaction(rows.at(-1)?.ms)} · MOST TIMING ERROR`):'Your moment of shame.'}</Copy>
         </Animated.View>
         <Animated.View testID="elimination-monster-group" style={{position:'absolute',left:68*m.sx,top:326*m.sy,width:254*m.sx,height:272*m.sy,alignItems:'center',justifyContent:'center',opacity:v([spotlightAt+100,spotlightAt+400,kickAt+650,kickAt+900],[0,1,1,0]),transform:reduced?[]:[{translateX:v([spotlightAt,kickAt,kickAt+850],[0,0,440*m.sx])},{translateY:v([spotlightAt,spotlightAt+600,kickAt,kickAt+300,kickAt+850],[65*m.sy,0,0,-60*m.sy,100*m.sy])},{scale:v([spotlightAt,spotlightAt+450,spotlightAt+650,kickAt,kickAt+850],[.55,1.06,1,1,.4])},{rotate:v([spotlightAt,kickAt-140,kickAt,kickAt+850],['0deg','0deg','-6deg','390deg'])}]}}>
           <Image testID="elimination-monster-cutout" source={eliminatedMonsters[loser]} resizeMode="contain" style={FILL}/>
@@ -516,7 +388,7 @@ function ResultsReveal({result, players, playerId, paused, revealed, onRevealed,
           <EnamelPanel><LinearGradient colors={['#fffbee','#ffe8bf']} style={{flex:1,alignItems:'center',justifyContent:'center'}}><Copy size={34} color={INK}>{formatReaction(rows.at(-1)?.ms)}</Copy></LinearGradient></EnamelPanel>
         </Animated.View>
         <Animated.View style={{position:'absolute',left:24*m.sx,top:658*m.sy,width:342*m.sx,opacity:v([stampAt+300,stampAt+650,kickAt,kickAt+500],[0,1,1,0]),transform:reduced?[]:[{translateY:v([stampAt+300,stampAt+650,kickAt,kickAt+500],[15*m.sy,0,0,25*m.sy])}]}}>
-          <Copy size={24} lines={1}>{modeForRound(result.round,order)==='beat'?'TWO LEFT THUMBS.':'TOO SLOW.'}</Copy><Copy size={20} color="#ff94b0" style={{marginTop:8*m.unit}}>{eliminationQuip(result.round)}</Copy>
+          <Copy size={24} lines={1}>TWO LEFT THUMBS.</Copy><Copy size={20} color="#ff94b0" style={{marginTop:8*m.unit}}>{eliminationQuip(result.round)}</Copy>
         </Animated.View>
         {!reduced && Array.from({length:10},(_,i)=>{
           const angle=i*Math.PI/5;
@@ -525,7 +397,7 @@ function ResultsReveal({result, players, playerId, paused, revealed, onRevealed,
       </>}
       {showNext && <View testID="next-round-stage" style={StyleSheet.absoluteFill}>
         <Animated.View style={{position:'absolute',left:16*m.sx,top:185*m.sy,width:358*m.sx,alignItems:'center',opacity:done?1:v([nextArrival,nextArrival+370],[0,1]),transform:reduced?[]:[{translateY:done?0:v([nextArrival,nextArrival+370],[18*m.sy,0])}]}}>
-          <ComicCopy size={survivors===1||result.tied?35:46}>{survivors===1?'LAST ONE STANDING!':result.tied?'EVERYONE STAYS IN!':'NEXT ROUND'}</ComicCopy>
+          <ComicCopy size={survivors===1||result.tied?35:46}>{survivors===1?'BEAT PANIC CHAMPION!':result.tied?'EVERYONE STAYS IN!':'NEXT ROUND'}</ComicCopy>
           <Copy size={16} color="#ff9fbc" style={{letterSpacing:2*m.unit,marginTop:14*m.unit}}>{survivors===1?'WINNER REVEAL IN':'STARTS IN'}</Copy>
           <View style={{marginTop:12*m.unit}}><CountdownDial value={remaining} size={112} running={done&&!paused}/></View>
         </Animated.View>
@@ -535,7 +407,7 @@ function ResultsReveal({result, players, playerId, paused, revealed, onRevealed,
               {prediction.pick && <Avatar id={prediction.pick} size={44*m.unit}/>}
               <View style={{flex:1}}><Copy size={23} color={prediction.points?GOLD:CREAM} lines={1}>{prediction.pick?prediction.points?'CALLED IT!':'NOT THIS TIME':'NO PICK THIS ROUND'}</Copy><Copy size={14} color="#ffacc2" style={{marginTop:3*m.unit}}>{prediction.pick?prediction.points?'+25 bonus points':'No points lost':'Try a pick next round'}</Copy></View>
             </View>
-          </EnamelPanel> : <View style={{flex:1,justifyContent:'center'}}><Copy size={19} color="#ff9dbb">{loser===playerId?'PROMOTED TO SPECTATOR':survivors===1?'One tap. One champion.':result.tied?'Too close to call. Go again!':'+100 POINTS. EGO RESTORED.'}</Copy></View>}
+          </EnamelPanel> : <View style={{flex:1,justifyContent:'center'}}><Copy size={19} color="#ff9dbb">{loser===playerId?'PROMOTED TO SPECTATOR':survivors===1?'One beat. One champion.':result.tied?'Too close to call. Go again!':'+100 POINTS. EGO RESTORED.'}</Copy></View>}
         </Animated.View>
         <Animated.View testID="survivor-lineup" style={{position:'absolute',left:18*m.sx,top:497*m.sy,width:354*m.sx,height:321*m.sy,opacity:done?1:v([nextArrival+300,nextArrival+700],[0,1]),transform:reduced?[]:[{translateY:done?0:v([nextArrival+300,nextArrival+700],[36*m.sy,0])}]}}>
           <View testID="remaining-players-heading" style={{height:37*m.sy,justifyContent:'center',borderBottomWidth:m.unit,borderColor:'#ff89b54d',marginBottom:12*m.sy}}><Copy size={20} color={GOLD} lines={1}>{survivors} {survivors===1?'PLAYER':'PLAYERS'} REMAINING</Copy></View>
@@ -558,13 +430,10 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
   const [phase, setPhase] = useState<LastTapPhase>(initialPhase);
   const [players, setPlayers] = useState(() => createTapPlayers(playerId, playerName));
   const [round, setRound] = useState(1);
-  const [seconds, setSeconds] = useState<number>(TAP_PACING.remember);
-  const [cardIndex, setCardIndex] = useState(0);
-  const [sequence, setSequence] = useState<RoundSequence>(() => sequenceForRound(1));
+  const [seconds, setSeconds] = useState<number>(TAP_PACING.preview);
   const [reaction, setReaction] = useState<number | null>(null);
   const [result, setResult] = useState<TapRound | null>(null);
   const [history, setHistory] = useState<TapRound[]>([]);
-  const [lockedOut, setLockedOut] = useState(false);
   const [paused, setPaused] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [assetsReady, setAssetsReady] = useState(false);
@@ -577,8 +446,7 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
   const [prediction, setPrediction] = useState<Prediction | null>(null);
   const [bonusPoints, setBonusPoints] = useState(0);
   const pickRef = useRef<MonsterId | null>(null);
-  const shownAt = useRef<number | null>(null), lockedUntil = useRef(0), submitted = useRef(false), wrongTaps = useRef(0);
-  const roundDeadline = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const submitted = useRef(false);
   const rivals = useRef<TapResult[]>([]);
   const phaseRef = useRef(phase); phaseRef.current = phase;
   const entry = useRef(new Animated.Value(TAP_PACING.entryMs)).current;
@@ -586,15 +454,8 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
   const transitionPending=useRef(false);
   const transitionAnimation=useRef<Animated.CompositeAnimation|null>(null);
   const [pageReady, setPageReady] = useState(true);
-  const [orderIndex,setOrderIndex]=useState(0);
-  const gameOrder=GAME_ORDERS[orderIndex];
   const active = players.filter(p => p.eliminatedRound === null);
   const localOut = players.find(p => p.id === playerId)?.eliminatedRound !== null;
-  const target = targetForRound(round);
-  const roundMode=modeForRound(round,gameOrder);
-  const current = sequence.mode==='target' ? sequence.cards[cardIndex] ?? target : target;
-  const snapCardsInPlay = sequence.mode==='snap' ? sequence.cards : SNAP_CARDS.slice(0,2);
-  const snapNow = sequence.mode==='snap' && cardIndex>0 && sequence.cards[cardIndex]===sequence.cards[cardIndex-1];
   const width = Math.min(viewportWidth, 510, viewportHeight * .72);
   const height = Math.min(viewportHeight, width * 844 / 390);
   const metrics = useMemo(() => ({ sx: width / 390, sy: height / 844, unit: Math.min(width / 390, height / 844 * 1.07) }), [width, height]);
@@ -621,20 +482,10 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
   }
   useEffect(()=>()=>transitionAnimation.current?.stop(),[]);
   useEffect(() => {
-    if (!soundOn || entrancePaused || phase !== 'welcome') return;
-    playNarration('lastTapWelcome');
-    return () => stopSound('lastTapWelcome');
-  }, [phase, entrancePaused, soundOn]);
-  useEffect(() => {
     if (!soundOn || phase !== 'rules') return;
     fadeLastTapMusicTo(.4, 1000);
-    playNarration('lastTapRules');
-    return () => {
-      stopSound('lastTapRules');
-      fadeLastTapMusicTo(1, 800);
-    };
+    return () => { fadeLastTapMusicTo(1, 800); };
   }, [phase, soundOn]);
-  useEffect(() => () => stopAllNarration(), [phase]);
 
   useEffect(() => {
     let live = true;
@@ -666,16 +517,15 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
   function prepareRound(nextRound: number, showFinal = false) {
     if(soundOn)unlockBeatAudio();
     pickRef.current = null; setFavourite(null); setPrediction(null);
-    submitted.current = false; shownAt.current = null; lockedUntil.current = 0; wrongTaps.current = 0;
-    setLockedOut(false); setReaction(null); setRound(nextRound); setCardIndex(0);
-    setSequence(sequenceForRound(nextRound,gameOrder));
-    rivals.current = simulateRivals(players, playerId, nextRound, Math.random, modeForRound(nextRound,gameOrder));
-    setSeconds(showFinal ? TAP_PACING.final : modeForRound(nextRound,gameOrder)==='snap' ? TAP_PACING.snapIntro : TAP_PACING.remember); goPhase(showFinal ? 'final' : 'target');
+    submitted.current = false;
+    setReaction(null); setRound(nextRound);
+    rivals.current = simulateRivals(players, playerId, nextRound, Math.random, players.filter(p=>p.eliminatedRound===null).length===2);
+    setSeconds(showFinal ? TAP_PACING.final : TAP_PACING.preview); goPhase(showFinal ? 'final' : 'target');
   }
   function finishRound(ms: number | null) {
     if (submitted.current) return;
-    submitted.current = true; setReaction(ms); setLockedOut(false);
-    const all = [...rivals.current, ...(!localOut ? [{ id: playerId, ms, wrongTaps: wrongTaps.current }] : [])];
+    submitted.current = true; setReaction(ms);
+    const all = [...rivals.current, ...(!localOut ? [{ id: playerId, ms, wrongTaps: 0 }] : [])];
     const resolved = resolveTapRound(round, all);
     if (localOut) {
       const points = predictionPoints(pickRef.current, all);
@@ -693,56 +543,13 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
     if (blocked || !pageReady || !timerPhases.includes(phase)) return;
     const timer = setTimeout(() => {
       if (seconds > 1) { setSeconds(n => Math.max(0, n - 1)); return; }
-      if (phase === 'final') { setSeconds(roundMode==='snap'?TAP_PACING.snapIntro:TAP_PACING.remember); goPhase('target'); }
-      else if (phase === 'target') { setCardIndex(0); shownAt.current = null; goPhase('playing',true); }
+      if (phase === 'final') { setSeconds(TAP_PACING.preview); goPhase('target'); }
+      else if (phase === 'target') { goPhase('playing',true); }
       else if (phase === 'locked') { setSeconds(0); goPhase('results'); }
     }, Math.min(1, seconds) * 1000);
     return () => clearTimeout(timer);
   }, [phase, seconds, blocked, pageReady, result, players]);
 
-  // All target sprites are already decoded. Timestamp the display frame, never
-  // the preceding animation or a network response. onPressIn measures touch down.
-  useLayoutEffect(() => {
-    const cue=sequence.mode==='snap'?snapNow:current===target;
-    if (roundMode==='beat' || phase !== 'playing' || blocked || !cue || shownAt.current !== null) return;
-    const frame = requestAnimationFrame(() => {
-      shownAt.current = performance.now();
-      roundDeadline.current = setTimeout(() => finishRound(null), TAP_PACING.targetWindowMs);
-    });
-    // The deadline belongs to the round, not the current image.
-    return () => cancelAnimationFrame(frame);
-  }, [phase, cardIndex, blocked, sequence, snapNow, current, target]);
-  useEffect(() => {
-    if (phase !== 'playing' || blocked) return;
-    return () => {
-      if (roundDeadline.current !== null) clearTimeout(roundDeadline.current);
-      roundDeadline.current = null;
-    };
-  }, [phase, blocked]);
-  useEffect(() => {
-    if (roundMode==='beat' || phase !== 'playing' || blocked) return;
-    const timer = setTimeout(() => setCardIndex(i => Math.min(i + 1, sequence.cards.length - 1)), sequence.intervalMs);
-    return () => clearTimeout(timer);
-  }, [phase, cardIndex, blocked, sequence]);
-  useEffect(() => {
-    if (!lockedOut) return;
-    const timer = setTimeout(() => setLockedOut(false), Math.max(0, lockedUntil.current - performance.now()));
-    return () => clearTimeout(timer);
-  }, [lockedOut]);
-
-  function tap() {
-    if (localOut) return;
-    if (phase !== 'playing' || blocked || submitted.current) return;
-    const now = performance.now();
-    if (now < lockedUntil.current) return;
-    if (shownAt.current === null) {
-      wrongTaps.current++; lockedUntil.current = now + TAP_PACING.wrongLockoutMs; setLockedOut(true);
-      return;
-    }
-    const ms = reactionAt(now, shownAt.current, lockedUntil.current);
-    if (ms === null) return;
-    playSound('click'); finishRound(ms);
-  }
   function resume() { setPaused(false); setShowOptions(false); if (phase === 'playing') prepareRound(round); }
   function continueFromResults() {
     if (phase !== 'results' || !resultRevealed) return;
@@ -754,20 +561,18 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
     setFavourite(null); setPaused(false); setShowOptions(false); goPhase('welcome');
   }
 
-  function RoundChips({compact=false}:{compact?:boolean}={}) { return <><Pill x={28} y={compact?88:129} w={130} h={39}><Copy size={21}>{active.length === 2 ? 'FINAL' : `ROUND ${round}`}</Copy></Pill><Pill x={168} y={compact?88:129} w={194} h={39}><Copy size={18} color={GOLD}>{active.length} STILL STANDING</Copy></Pill></>; }
-
   const survivor = active[0];
   const resultRows = result?.results || [];
   const finalists = active.slice(0, 2);
 
-  return <View nativeID="last-tap-standing" testID={`last-tap-${phase}`} style={{ width: viewportWidth, height: viewportHeight, backgroundColor: '#250008', alignItems: 'center', justifyContent: 'center' }}>
-    <Image source={roundMode==='beat'&&['target','playing','locked','results'].includes(phase)?LAST_TAP_ART.beat:LAST_TAP_ART.background} resizeMode="cover" style={FILL} />
-    <GameOrderContext.Provider value={gameOrder}><Layout.Provider value={metrics}>
+  return <View nativeID="beat-panic" testID={`beat-panic-${phase}`} style={{ width: viewportWidth, height: viewportHeight, backgroundColor: '#250008', alignItems: 'center', justifyContent: 'center' }}>
+    <Image source={['target','playing','locked','results'].includes(phase)?LAST_TAP_ART.beat:LAST_TAP_ART.background} resizeMode="cover" style={FILL} />
+    <Layout.Provider value={metrics}>
       <View style={{ width, height, position: 'relative' }}>
         <ScreenMotion.Provider value={{clock:entry, enabled:!reducedMotion && phase !== 'playing'}}>
         <Animated.View pointerEvents={pageReady ? 'box-none' : 'none'} style={[StyleSheet.absoluteFill,{opacity:departure,transform:[{translateY:departure.interpolate({inputRange:[0,1],outputRange:[-6*metrics.unit,0]})}]}]}>
           {phase === 'welcome' ? <>
-            <Logo large /><Box x={34} y={353} w={322} h={31} decorative><Copy size={20} color="#ff99c4" style={{ transform: [{ rotate: '-3deg' }] }}>Big egos. Tiny reaction times.</Copy></Box>
+            <Logo large /><Box x={34} y={353} w={322} h={31} decorative><Copy size={20} color="#ff99c4" style={{ transform: [{ rotate: '-3deg' }] }}>Four directions. One survivor.</Copy></Box>
             <Art source={LAST_TAP_ART.welcome} x={20} y={384} w={350} h={176} />
             <Pill x={27} y={565} w={336} h={60}>
               <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%', justifyContent: 'space-between', paddingHorizontal: 6 }}>
@@ -776,13 +581,7 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
                 <Pressable accessibilityRole="button" accessibilityLabel="Add pretend player" disabled={players.length >= 8} onPress={() => setPlayers(createTapPlayers(playerId, playerName, players.length))} style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', opacity: players.length >= 8 ? 0.3 : 1 }}><Copy size={32}>+</Copy></Pressable>
               </View>
             </Pill>
-            <Pill x={27} y={637} w={336} h={84}>
-              <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',width:'100%'}}>
-                <Pressable accessibilityRole="button" accessibilityLabel="Previous game order" onPress={()=>setOrderIndex(i=>(i+5)%6)} style={{minWidth:44,minHeight:48,justifyContent:'center'}}><Copy size={30}>‹</Copy></Pressable>
-                <View style={{flex:1}}><Copy size={16} color={GOLD}>TEST: GAME ORDER</Copy><Copy size={17} lines={1}>{gameOrder.map(g=>gameLabels[g]).join(' → ')}</Copy></View>
-                <Pressable accessibilityRole="button" accessibilityLabel="Next game order" onPress={()=>setOrderIndex(i=>(i+1)%6)} style={{minWidth:44,minHeight:48,justifyContent:'center'}}><Copy size={30}>›</Copy></Pressable>
-              </View>
-            </Pill>
+            <Pill x={45} y={650} w={300} h={54}><Copy size={18} color={GOLD}>RHYTHM KNOCKOUT · 4 LANES</Copy></Pill>
             <Button x={27} y={741} w={336} h={66} label="HOW TO PLAY" onPress={() => goPhase('rules')} />
 
           </> : phase === 'rules' ? <>
@@ -790,23 +589,24 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
             <Panel x={24} y={224} w={342} h={496}><View testID="focused-rules" style={{flex:1,padding:12*metrics.unit,gap:10*metrics.sy}}>
               <View style={{height:84*metrics.sy,justifyContent:'center'}}><Copy size={21} color={INK}>LAST ONE STANDING WINS</Copy><Copy size={15} color="#743145" body style={{marginTop:7*metrics.sy}}>{'One player out per round.\nSurvivors earn +100 points.'}</Copy></View>
               {[
-                {title:'TARGET HUNT',description:'Remember the target. Tap when it appears.',image:objectSource('toast')},
-                {title:'CHAOS SNAP',description:'Tap when matching cards land in a row.',image:snapCards.duck.source},
-                {title:'BEAT PANIC',description:'Tap left/right on the outlines. Lowest error wins.',image:victoryPoses.snicker},
-              ].map((rule,i)=><View key={rule.title} testID="focused-rule-card" style={{flex:1,flexDirection:'row',alignItems:'center',borderRadius:16*metrics.unit,backgroundColor:i%2?'#ffe3cf':'#ffeadb',padding:12*metrics.unit,gap:12*metrics.sx}}>
-                <Image source={rule.image} resizeMode="contain" style={{width:64*metrics.sx,height:82*metrics.sy}}/>
-                <View style={{flex:1}}><Copy size={21} color={INK} style={{textAlign:'left'}}>{rule.title}</Copy><Copy size={17} color={INK} body style={{textAlign:'left',marginTop:8*metrics.sy}}>{rule.description}</Copy></View>
+                {icon:'← ↑ ↓ →',title:'FOLLOW THE ARROWS',description:'Tap the matching lane as each arrow reaches the line.'},
+                {icon:'×2',title:'DOUBLE TAP',description:'Hit the lane twice when the double marker lands.'},
+                {icon:'HOLD',title:'HOLD NOTES',description:'Press and keep holding until the trail finishes.'},
+                {icon:'OUT',title:'SURVIVE THE ROUND',description:'Lowest timing error stays in. One player is eliminated.'},
+              ].map((rule,i)=><View key={rule.title} testID="focused-rule-card" style={{flex:1,flexDirection:'row',alignItems:'center',borderRadius:16*metrics.unit,backgroundColor:i%2?'#ffe3cf':'#ffeadb',padding:10*metrics.unit,gap:12*metrics.sx}}>
+                <View style={{width:70*metrics.sx,height:62*metrics.sy,borderRadius:13*metrics.unit,backgroundColor:'#390010',alignItems:'center',justifyContent:'center'}}><Copy size={rule.icon.length>4?17:22} color={GOLD} lines={1}>{rule.icon}</Copy></View>
+                <View style={{flex:1}}><Copy size={19} color={INK} style={{textAlign:'left'}}>{rule.title}</Copy><Copy size={14} color={INK} body style={{textAlign:'left',marginTop:5*metrics.sy}}>{rule.description}</Copy></View>
               </View>)}
             </View></Panel>
             <Button x={55} y={744} w={280} h={66} label={assetError ? 'RETRY IMAGES' : assetsReady ? 'GOT IT!' : 'LOADING…'} disabled={!assetsReady && !assetError} onPress={() => assetError ? setRetry(n => n + 1) : prepareRound(1, players.length === 2)} />
           </> : localOut && (phase === 'target' || phase === 'playing' || phase === 'locked') ? <>
-            {roundMode==='beat'&&phase!=='target'?<Art source={LAST_TAP_ART.logo} x={132} y={5} w={126} h={80}/>:<Art source={LAST_TAP_ART.logo} x={105} y={23} w={180} h={125}/>}
-            <Pill x={100} y={roundMode==='beat'&&phase!=='target'?91:151} w={190} h={33}><Copy size={20}>WATCH PARTY</Copy></Pill>
-            <Box x={13} y={roundMode==='beat'&&phase!=='target'?138:199} w={364} h={55} style={{justifyContent:'center'}}><ComicCopy size={phase==='target'?44:38}>{phase==='target'?'WIN +25 POINTS!':phase==='playing'?'PICK LOCKED':'RESULTS UP NEXT'}</ComicCopy></Box>
-            {phase==='target'&&<Pill x={20} y={257} w={350} h={38}><Copy size={18}>{roundMode==='beat'?'Predict who has the best rhythm':'Predict who taps fastest next round'}</Copy></Pill>}
+            <Logo />
+            <Pill x={100} y={121} w={190} h={33}><Copy size={20}>WATCH PARTY</Copy></Pill>
+            <Box x={13} y={165} w={364} h={55} style={{justifyContent:'center'}}><ComicCopy size={phase==='target'?44:38}>{phase==='target'?'WIN +25 POINTS!':phase==='playing'?'PICK LOCKED':'RESULTS UP NEXT'}</ComicCopy></Box>
+            {phase==='target'&&<Pill x={20} y={235} w={350} h={38}><Copy size={18}>Predict who has the best rhythm</Copy></Pill>}
             {phase === 'target' ? <>
-              <Box x={35} y={305} w={320} h={39} style={{justifyContent:'center'}}><Copy size={20} color={GOLD} lines={1}>{favourite ? `${nameOf(favourite)} · PICK SAVED ✓` : 'ONE PICK. +25 IF YOU NAIL IT.'}</Copy></Box>
-              <Box x={15} y={364} w={360} h={313} style={{justifyContent:'center'}}>
+              <Box x={35} y={290} w={320} h={39} style={{justifyContent:'center'}}><Copy size={20} color={GOLD} lines={1}>{favourite ? `${nameOf(favourite)} · PICK SAVED ✓` : 'ONE PICK. +25 IF YOU NAIL IT.'}</Copy></Box>
+              <Box x={15} y={345} w={360} h={320} style={{justifyContent:'center'}}>
                 <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'center',rowGap:10*metrics.sy,columnGap:7*metrics.sx}}>
                   {active.map(p=>{
                     const selected=favourite===p.id;
@@ -821,49 +621,38 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
                 </View>
               </Box>
               <Box x={74} y={711} w={242} h={95} style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:15*metrics.unit}}>
-                <CountdownDial running={!blocked&&pageReady} total={roundMode==='snap'?TAP_PACING.snapIntro:TAP_PACING.remember} value={Math.ceil(seconds)} size={84}/>
+                <CountdownDial running={!blocked&&pageReady} total={TAP_PACING.preview} value={Math.ceil(seconds)} size={84}/>
                 <View style={{flex:1}}><Copy size={22}>PICKS LOCK IN</Copy><Copy size={15} color="#ffadc7" style={{marginTop:7*metrics.unit}}>{favourite?'Pick saved. Feeling lucky?':'Tap a player to predict'}</Copy></View>
               </Box>
             </> : <>
-              {phase==='playing'&&roundMode==='beat'?<Box x={20} y={213} w={350} h={405}><BeatPanic soundOn={soundOn} sx={metrics.sx} sy={metrics.sy*.95} paused={blocked||!pageReady} spectator reduced={reducedMotion} monster={victoryPoses[favourite||playerId]} onComplete={finishRound}/></Box>:phase==='playing'&&roundMode==='snap'?<ChaosSnapArena y={293} blocked={blocked} cards={snapCardsInPlay} index={cardIndex} lockedOut={false} reducedMotion={reducedMotion}/>:<Box x={32} y={roundMode==='beat'?260:301} w={326} h={roundMode==='beat'?345:293}>
-                <EnamelPanel style={{height:'100%'}}><View style={{flex:1,paddingVertical:20*metrics.sy,paddingHorizontal:16*metrics.sx,backgroundColor:'#31000f',alignItems:'center',justifyContent:'center'}}>
-                  {phase==='playing'?TARGETS.map(id=><Image key={id} source={objectSource(id)} resizeMode="contain" style={{position:'absolute',width:'85%',height:'85%',opacity:current===id?1:0}}/>):<><Copy size={24}>ROUND COMPLETE</Copy>{roundMode==='beat'&&<Image source={victoryPoses[favourite||playerId]} resizeMode="contain" style={{width:130*metrics.sx,height:135*metrics.sy,marginTop:12*metrics.sy}}/>}<View style={{marginVertical:16*metrics.unit}}><CountdownDial running={!blocked&&pageReady} total={5} value={Math.ceil(seconds)} size={roundMode==='beat'?76:99}/></View></>}
-                </View></EnamelPanel>
+              {phase==='playing'?<Box x={20} y={235} w={350} h={390}><BeatPanic soundOn={soundOn} round={round} finalRound={active.length===2} sx={metrics.sx} sy={metrics.sy*.92} paused={blocked||!pageReady} spectator reduced={reducedMotion} monster={victoryPoses[favourite||playerId]} onComplete={finishRound}/></Box>:<Box x={32} y={270} w={326} h={300}>
+                <EnamelPanel style={{height:'100%'}}><View style={{flex:1,padding:20*metrics.unit,backgroundColor:'#31000f',alignItems:'center',justifyContent:'center'}}><Copy size={24}>ROUND COMPLETE</Copy><Image source={victoryPoses[favourite||playerId]} resizeMode="contain" style={{width:150*metrics.sx,height:160*metrics.sy,marginTop:12*metrics.sy}}/><CountdownDial running={!blocked&&pageReady} total={TAP_PACING.locked} value={Math.ceil(seconds)} size={76}/></View></EnamelPanel>
               </Box>}
               <Box x={32} y={624} w={326} h={82}>
-                <EnamelPanel style={{height:'100%'}} selected={roundMode==='beat'&&!!favourite}><View style={{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:15*metrics.unit,paddingHorizontal:16*metrics.unit,paddingVertical:12*metrics.sy}}>{favourite&&(roundMode==='beat'?<Image source={monsters[favourite]} resizeMode="contain" style={{width:48*metrics.sx,height:52*metrics.sy}}/>:<Avatar id={favourite} size={55*metrics.unit}/>)}<View style={{flex:1}}><Copy size={16} color="#ffc5d9">YOUR PICK</Copy><Copy size={roundMode==='beat'?25:29} lines={1} style={{marginTop:5*metrics.unit}}>{favourite?nameOf(favourite):'NO PICK'}</Copy></View></View></EnamelPanel>
+                <EnamelPanel style={{height:'100%'}} selected={!!favourite}><View style={{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:15*metrics.unit,paddingHorizontal:16*metrics.unit,paddingVertical:12*metrics.sy}}>{favourite&&<Image source={monsters[favourite]} resizeMode="contain" style={{width:48*metrics.sx,height:52*metrics.sy}}/>}<View style={{flex:1}}><Copy size={16} color="#ffc5d9">YOUR PICK</Copy><Copy size={25} lines={1} style={{marginTop:5*metrics.unit}}>{favourite?nameOf(favourite):'NO PICK'}</Copy></View></View></EnamelPanel>
               </Box>
               <SurvivalBar players={players} localId={playerId} y={721}/>
 
             </>}
           </> : phase === 'target' || phase === 'playing' ? <>
-            {roundMode==='beat'?<><Art source={LAST_TAP_ART.logo} x={20} y={16} w={92} h={82}/><Pill x={126} y={78} w={244} h={32}><Copy size={17}>{active.length===2?'FINAL':`ROUND ${round}`} · {active.length} STANDING</Copy></Pill></>:<><Logo /><RoundChips/></>}
-            <Heading x={roundMode==='beat'?119:14} y={roundMode==='beat'?23:184} w={roundMode==='beat'?258:362} h={roundMode==='beat'?48:70} size={roundMode==='beat'?30:roundMode==='snap'?37:39}>{roundMode==='beat'?'BEAT PANIC':roundMode==='snap'?(phase==='target'?'CHAOS SNAP!':'MATCH. MATCH. SNAP!'):(phase === 'target' ? 'REMEMBER THIS' : 'SPOT IT. TAP IT!')}</Heading>
-            {roundMode==='beat'?<Box x={20} y={132} w={350} h={588}><BeatPanic soundOn={soundOn} key={`${round}-${phase}`} sx={metrics.sx} sy={metrics.sy} preview={phase==='target'} paused={blocked||!pageReady} reduced={reducedMotion} monster={victoryPoses[playerId]} onComplete={finishRound}/></Box>:roundMode==='snap'?<ChaosSnapArena preview={phase==='target'} blocked={blocked} cards={snapCardsInPlay} index={cardIndex} lockedOut={lockedOut} reducedMotion={reducedMotion}/>:<Arena preview={phase === 'target'} blocked={blocked} target={target} current={current} lockedOut={lockedOut} onTap={tap}/>}
-            {roundMode==='beat'&&phase==='target'&&<Pill x={62} y={677} w={266} h={42}><Copy size={24} color={GOLD}>STARTS IN {Math.ceil(seconds)}</Copy></Pill>}
-            {roundMode!=='beat'&&<Box x={133} y={584} w={124} h={124} style={{width:124 * metrics.unit, height:124 * metrics.unit, left:(width - 124 * metrics.unit)/2}}>
-              <Pressable testID="last-tap-countdown-button" accessibilityRole="button" accessibilityLabel={phase === 'target' ? `Starting in ${Math.ceil(seconds)}` : roundMode==='snap'?'Snap now':'Tap now'} accessibilityState={{disabled:phase === 'target' || blocked}} disabled={phase === 'target' || blocked} onPressIn={tap} onPress={event => {if (Platform.OS === 'web' && (event.nativeEvent as any).detail === 0) tap();}} style={({pressed})=>({flex:1,borderRadius:62*metrics.unit,transform:[{scale:pressed?.98:1}],...(Platform.OS==='web'?{touchAction:'manipulation'} as any:{})})}>
-                {phase==='target'?<CountdownDial running={!blocked&&pageReady} total={roundMode==='snap'?TAP_PACING.snapIntro:TAP_PACING.remember} value={Math.ceil(seconds)} size={124}/>:<View style={{flex:1,borderRadius:62*metrics.unit,borderWidth:2*metrics.unit,borderColor:'#210008',backgroundColor:RED,padding:5*metrics.unit,boxShadow:`0 ${4*metrics.unit}px 0 #180008, 0 0 ${18*metrics.unit}px #ff255480`}}>
-                  <LinearGradient colors={['#ff7f99','#ff1641','#bc002c']} style={{flex:1,borderRadius:58*metrics.unit,borderWidth:3*metrics.unit,borderColor:'#780025',alignItems:'center',justifyContent:'center'}}><Copy size={roundMode==='snap'?36:42} style={{textShadowColor:'#5d0616',textShadowOffset:{width:0,height:3*metrics.unit},textShadowRadius:1}}>{roundMode==='snap'?'SNAP!':'TAP!'}</Copy></LinearGradient>
-                </View>}
-              </Pressable>
-            </Box>}
+            <Logo />
+            <Pill x={126} y={92} w={244} h={32}><Copy size={17}>{active.length===2?'FINAL':`ROUND ${round}`} · {active.length} STANDING</Copy></Pill>
+            <Heading x={119} y={31} w={258} h={48} size={30}>BEAT PANIC</Heading>
+            <Box x={20} y={132} w={350} h={588}><BeatPanic soundOn={soundOn} key={`${round}-${phase}`} round={round} finalRound={active.length===2} sx={metrics.sx} sy={metrics.sy} preview={phase==='target'} paused={blocked||!pageReady} reduced={reducedMotion} monster={victoryPoses[playerId]} onComplete={finishRound}/></Box>
+            {phase==='target'&&<Pill x={62} y={677} w={266} h={42}><Copy size={24} color={GOLD}>STARTS IN {Math.ceil(seconds)}</Copy></Pill>}
             <SurvivalBar players={players} localId={playerId} y={731}/>
 
           </> : phase === 'locked' ? <>
-            <Logo /><Heading x={13} y={137} w={364} h={62} size={43}>{roundMode==='beat'?'BEAT COMPLETE':reaction === null ? 'MISSED IT!' : 'TAP RECORDED'}</Heading>
-            <Box x={22} y={208} w={346} h={31}><Copy size={19} color="#ffadc7">{roundMode==='beat'?(reaction!==null&&reaction<=1960?'Your thumb has serious range.':'The rhythm has filed a complaint.'):reactionQuip(reaction)}</Copy></Box>
-            <Art source={roundMode==='beat'?victoryPoses[playerId]:reaction !== null ? tapPoses[playerId] : eliminatedMonsters[playerId]} x={55} y={255} w={280} h={roundMode==='beat'?215:240} />
-            {roundMode==='beat'?<Box x={30} y={476} w={330} h={145}><EnamelPanel selected style={{height:'100%'}}><LinearGradient colors={['#561728','#290512']} style={{flex:1,alignItems:'center',justifyContent:'center',paddingVertical:18*metrics.sy,paddingHorizontal:18*metrics.sx,gap:10*metrics.sy}}><Copy size={49} color={GOLD}>{formatReaction(reaction)}</Copy><Copy size={20}>TOTAL TIMING ERROR</Copy></LinearGradient></EnamelPanel></Box>:<Panel x={30} y={484} w={330} h={132}><View style={{ alignItems: 'center', justifyContent: 'center', flex: 1 }}><Copy size={16} color="#7a3044">YOUR REACTION</Copy><Copy size={reaction === null ? 48 : 68} color={INK} style={{marginTop:6*metrics.unit}}>{formatReaction(reaction)}</Copy></View></Panel>}
+            <Logo /><Heading x={13} y={137} w={364} h={62} size={43}>BEAT COMPLETE</Heading>
+            <Box x={22} y={208} w={346} h={31}><Copy size={19} color="#ffadc7">{reaction!==null&&reaction<=2600?'Your thumb has serious range.':'The rhythm has filed a complaint.'}</Copy></Box>
+            <Art source={victoryPoses[playerId]} x={55} y={255} w={280} h={215} />
+            <Box x={30} y={476} w={330} h={145}><EnamelPanel selected style={{height:'100%'}}><LinearGradient colors={['#561728','#290512']} style={{flex:1,alignItems:'center',justifyContent:'center',paddingVertical:18*metrics.sy,paddingHorizontal:18*metrics.sx,gap:10*metrics.sy}}><Copy size={49} color={GOLD}>{formatReaction(reaction)}</Copy><Copy size={20}>TOTAL TIMING ERROR</Copy></LinearGradient></EnamelPanel></Box>
             <Pill x={30} y={641} w={330} h={72}><View style={{flexDirection:'row',alignItems:'center',gap:18*metrics.unit}}><CountdownDial running={!blocked&&pageReady} total={5} value={Math.ceil(seconds)} size={52}/><Copy size={23}>RESULTS IN</Copy></View></Pill>
             <SurvivalBar players={players} localId={playerId} y={737} />
-          </> : phase === 'eliminated' || phase === 'practice' ? <>
-            <Logo /><Heading x={14} y={125} w={362} h={95} size={44}>{phase === 'practice' ? 'COMEBACK CLUB' : 'TOO SLOW.'}</Heading>
-            <Art source={phase === 'practice' ? LAST_TAP_ART.practice : LAST_TAP_ART.eliminated} x={14} y={227} w={362} h={phase === 'practice' ? 190 : 280} />
-            {phase === 'practice' ? <Box x={25} y={430} w={340} h={252}><PracticePad blocked={blocked} /></Box> : <>
-              <Panel x={26} y={520} w={338} h={133}><Copy size={22} color={INK} style={{ marginTop: 12 * metrics.unit }}>YOUR LAST TAP</Copy><Copy size={54} color={INK}>{formatReaction(reaction)}</Copy></Panel>
-              <Box x={28} y={653} w={334} h={36}><Pressable accessibilityRole="button" onPress={() => goPhase('practice')} style={{flex: 1, justifyContent: 'center'}}><Copy size={23} color={GOLD}>PRACTISE YOUR COMEBACK →</Copy></Pressable></Box>
-            </>}
+          </> : phase === 'eliminated' ? <>
+            <Logo /><Heading x={14} y={125} w={362} h={95} size={44}>BEATEN.</Heading>
+            <Art source={LAST_TAP_ART.eliminated} x={14} y={227} w={362} h={280} />
+            <Panel x={26} y={520} w={338} h={133}><Copy size={22} color={INK} style={{ marginTop: 12 * metrics.unit }}>YOUR TIMING ERROR</Copy><Copy size={54} color={INK}>{formatReaction(reaction)}</Copy></Panel>
             <SurvivalBar players={players} localId={playerId} y={690} />
             <Button x={30} y={785} w={330} h={54} label="JOIN THE WATCH PARTY" onPress={afterResults} />
           </> : phase === 'results' ? <>
@@ -872,7 +661,7 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
             <FinalShowdown finalists={finalists} seconds={seconds} paused={blocked}/>
           </> : <>
             <Logo/>
-            <Heading x={20} y={134} w={350} h={105} size={48}>{'LAST TAP\nSTANDING!'}</Heading>
+            <Heading x={20} y={134} w={350} h={105} size={48}>{'BEAT PANIC\nCHAMPION!'}</Heading>
             <WinnerConfetti paused={blocked}/>
             <Box x={60} y={256} w={270} h={248}><CrownedVictory id={survivor?.id||'snicker'} width={270*metrics.sx} height={248*metrics.sy}/></Box>
             <Panel x={27} y={509} w={336} h={200}><View style={{ alignItems: 'center', padding: 9 * metrics.unit }}><Copy size={39} color={INK} lines={1}>{`${nameOf(survivor?.id || 'snicker')} WINS!`}</Copy><Copy size={16} color="#7a3044" style={{ marginTop: 16 * metrics.unit }}>{survivor?.score || 0} SURVIVAL POINTS</Copy>
@@ -883,16 +672,16 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
           </>}
         </Animated.View>
         </ScreenMotion.Provider>
-        <Box x={0} y={0} w={44} h={44}><Pressable accessibilityRole="button" accessibilityLabel="Last Tap Standing options" onPress={() => setShowOptions(true)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', opacity: .78 }}><Copy size={21}>•••</Copy></Pressable></Box>
+        <Box x={0} y={0} w={44} h={44}><Pressable accessibilityRole="button" accessibilityLabel="Beat Panic options" onPress={() => setShowOptions(true)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', opacity: .78 }}><Copy size={21}>•••</Copy></Pressable></Box>
       </View>
       <Modal visible={showOptions || paused} transparent animationType="fade" onRequestClose={resume}>
         <View style={{ flex: 1, backgroundColor: '#160005e8', justifyContent: 'center', alignItems: 'center', padding: 24 }}><View style={{ width: '100%', maxWidth: 390, borderRadius: 24, padding: 25, backgroundColor: INK, borderWidth: 2, borderColor: RED, gap: 18 }}>
-          <Copy size={35}>TAKE A BREATHER</Copy><Copy size={17} body>{phase === 'playing' ? 'We’ll restart this round so your reaction time stays fair.' : 'Thumb having a tea break?'}</Copy>
+          <Copy size={35}>TAKE A BREATHER</Copy><Copy size={17} body>{phase === 'playing' ? 'We’ll restart this chart so your timing stays fair.' : 'Thumb having a tea break?'}</Copy>
           {[['RESUME', resume], ['PLAY AGAIN', restart], ['BACK TO LOBBY', onExit]].map(([label, action]) => <Pressable key={label as string} accessibilityRole="button" onPress={action as () => void} style={{ paddingVertical: 15, borderRadius: 24, backgroundColor: '#e90636' }}><Copy size={23}>{label as string}</Copy></Pressable>)}
           <Copy size={13} color="#e9a7b5" body>Solo preview: your taps are real; {players.length - 1} {players.length === 2 ? 'rival is' : 'rivals are'} simulated.</Copy>
           {history.length > 0 && <Copy size={14} color={GOLD}>{history.length} round{history.length === 1 ? '' : 's'} recorded this game</Copy>}
         </View></View>
       </Modal>
-    </Layout.Provider></GameOrderContext.Provider>
+    </Layout.Provider>
   </View>;
 }

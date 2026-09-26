@@ -1128,9 +1128,6 @@ function SpinnerScreen({
     preloadSound('spinnerStop');
     preloadSound('teleport');
     preloadSound('lastTapStanding');
-    preloadSound('lastTapSpinner');
-    preloadSound('lastTapWelcome');
-    preloadSound('lastTapRules');
     void warmImageGroup(
       [
         ...getSpinnerArt().cards.flatMap((card) => (card.source ? [card.source] : [])),
@@ -1179,7 +1176,6 @@ function SpinnerScreen({
 
       haptic('success');
       if (landedGame.current === 'memeMaster') playNarration('memeMasterSpinner');
-      if (landedGame.current === 'lastTapStanding') playNarration('lastTapSpinner');
       Animated.parallel([
         Animated.sequence([
           Animated.spring(landingScale, {
@@ -1294,7 +1290,7 @@ function SpinnerScreen({
             {([
               ['random', 'RANDOM'],
               ['memeMaster', 'MEME MASTER'],
-              ['lastTapStanding', 'LAST TAP'],
+              ['lastTapStanding', 'BEAT PANIC'],
             ] as const).map(([id, label]) => {
               const selected = forcedLanding === id;
               return (
@@ -1516,9 +1512,6 @@ export default function App() {
       preloadSound('spinnerStop');
       preloadSound('gameSpinnerIntro');
       preloadSound('memeMasterSpinner');
-      preloadSound('lastTapSpinner');
-      preloadSound('lastTapWelcome');
-      preloadSound('lastTapRules');
       preloadSound('memeMaster');
       preloadSound('lastTapStanding');
       preloadSound('teleport');

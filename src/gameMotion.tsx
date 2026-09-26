@@ -64,7 +64,7 @@ const TELEPORT_MS = 1500;
 type WarpGame = 'memeMaster' | 'lastTapStanding';
 const WARP: Record<WarpGame, { disc: string; label: string; ring: readonly [string, string]; testID: string; wash: string }> = {
   memeMaster: { disc: '#020444', label: 'Entering Meme Master', ring: ['#37f5ff', '#a34bff'], testID: 'meme-teleport', wash: '#070334' },
-  lastTapStanding: { disc: '#250008', label: 'Entering Last Tap Standing', ring: ['#ff8296', '#b80032'], testID: 'last-tap-teleport', wash: '#1a0008' },
+  lastTapStanding: { disc: '#250008', label: 'Entering Beat Panic', ring: ['#ff8296', '#b80032'], testID: 'beat-panic-teleport', wash: '#1a0008' },
 };
 
 export function MemeTeleport({width,height,revealReady,onCovered,onReveal,onDone,game='memeMaster',card}:{width:number;height:number;revealReady:boolean;onCovered:()=>void;onReveal?:()=>void;onDone:()=>void;game?:WarpGame;card?:ReactNode}) {

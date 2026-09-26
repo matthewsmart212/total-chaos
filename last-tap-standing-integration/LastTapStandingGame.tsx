@@ -18,7 +18,7 @@ type Prediction = { pick: MonsterId | null; points: number };
 // welcome uses shared key art so its spinner poster is visually identical.
 export const LAST_TAP_ART = {
   logo: require('./assets/last-tap/beat-panic-logo.webp'),
-  keyArt: require('./assets/last-tap/beat-panic-key-art.webp'),
+  keyArt: require('./assets/last-tap/beat-panic-key-art-v2.webp'),
   beat: require('./assets/last-tap/beat-panic-background.png'),
   background: require('./assets/last-tap/background-clean.webp'),
   stage: require('./assets/last-tap/elimination-stage.webp'),
@@ -577,7 +577,7 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
         <ScreenMotion.Provider value={{clock:entry, enabled:!reducedMotion && phase !== 'playing'}}>
         <Animated.View pointerEvents={pageReady ? 'box-none' : 'none'} style={[StyleSheet.absoluteFill,{opacity:departure,transform:[{translateY:departure.interpolate({inputRange:[0,1],outputRange:[-6*metrics.unit,0]})}]}]}>
           {phase === 'welcome' ? <>
-            <Button x={27} y={742} w={336} h={66} label="HOW TO PLAY" onPress={() => goPhase('rules')} />
+            <Button x={27} y={700} w={336} h={66} label="HOW TO PLAY" onPress={() => goPhase('rules')} />
 
           </> : phase === 'rules' ? <>
             <Logo /><Heading x={12} y={135} w={366} h={62} size={42}>HOW TO PLAY</Heading>

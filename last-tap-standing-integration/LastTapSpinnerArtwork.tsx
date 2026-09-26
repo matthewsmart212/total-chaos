@@ -2,7 +2,7 @@ import React from 'react';
 import { Platform, StyleSheet, View, ViewStyle } from 'react-native';
 import Svg, { ClipPath, Defs, FeDropShadow, Filter, G, Image as SvgImage, Polygon } from 'react-native-svg';
 
-const keyArt = require('./assets/last-tap/beat-panic-key-art.webp');
+const keyArt = require('./assets/last-tap/beat-panic-key-art-v2.webp');
 
 export const LAST_TAP_SPINNER_SOURCES = [keyArt];
 
@@ -72,11 +72,11 @@ export default function LastTapSpinnerArtwork({ scale }: Props) {
         <G filter={Platform.OS === 'web' ? undefined : 'url(#lastTapPosterGlow)'}>
           <G clipPath="url(#lastTapPosterSilhouette)">
             <SvgImage
-              height={CARD_HEIGHT}
+              height="910"
               href={keyArt}
-              preserveAspectRatio="xMidYMid slice"
-              width={CARD_WIDTH}
-              x="0"
+              preserveAspectRatio="xMidYMin meet"
+              width="420"
+              x="-15"
               y="0"
             />
             <Polygon fill="none" points={SILHOUETTE} stroke="#30000d" strokeLinejoin="round" strokeWidth={BORDER.burgundy} />

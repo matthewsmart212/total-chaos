@@ -84,6 +84,7 @@ test('the chart renders four lanes, four controls, doubles and holds', () => {
   const html = renderToStaticMarkup(React.createElement(BeatPanic,{sx:1,sy:1,round:3,preview:true,onComplete(){}}));
   assert(html.includes('×2'));
   assert(html.includes('HOLD'));
+  for (const plainArrow of ['←','↑','↓','→']) assert(!html.includes(plainArrow));
 });
 
 test('rules describe only Beat Panic mechanics', () => {
@@ -108,7 +109,9 @@ test('active preview and play screens use the Beat Panic arena', () => {
 test('knockout, finale, eliminated and champion screens remain connected', () => {
   const full = createTapPlayers('grumble','Tester');
   const roundResult = resolveTapRound(1,full.map((player,index)=>({id:player.id,ms:200+index*50,wrongTaps:0})));
-  assert(renderGame('results',full,roundResult).includes('RHYTHM CHECK'));
+  const resultsHtml = renderGame('results',full,roundResult);
+  assert(resultsHtml.includes('RHYTHM CHECK'));
+  assert(!resultsHtml.includes('TIMING ERROR · LOWER IS BETTER'));
 
   const finalists = full.map((player,index)=>({...player,eliminatedRound:index>1?1:null}));
   assert(renderGame('final',finalists).includes('FINAL SHOWDOWN'));

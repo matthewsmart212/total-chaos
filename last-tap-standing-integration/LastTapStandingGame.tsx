@@ -19,6 +19,7 @@ type Prediction = { pick: MonsterId | null; points: number };
 export const LAST_TAP_ART = {
   logo: require('./assets/last-tap/beat-panic-logo.webp'),
   keyArt: require('./assets/last-tap/beat-panic-key-art-v2.webp'),
+  arena: require('./assets/last-tap/beat-panic-arena-v2.webp'),
   beat: require('./assets/last-tap/beat-panic-background.png'),
   background: require('./assets/last-tap/background-clean.webp'),
   stage: require('./assets/last-tap/elimination-stage.webp'),
@@ -332,7 +333,7 @@ function ResultsReveal({result, players, playerId, paused, revealed, onRevealed,
   const m = useContext(Layout);
   const rows = result.results;
   const rowHeight = rows.length > 6 ? 43 : 48;
-  const tableTop = 300;
+  const tableTop = 250;
   const tableHeight = Math.max(250, rows.length * rowHeight + 24);
   const {spotlightAt,stampAt,kickAt,end}=tapRevealTiming(rows.length,!!result.eliminatedId);
   const {clock, now, reduced} = useMotionClock(end, paused, onRevealed, undefined, true);
@@ -360,7 +361,6 @@ function ResultsReveal({result, players, playerId, paused, revealed, onRevealed,
     <Logo />
     <Heading x={20} y={132} w={350} h={59} size={36}>RHYTHM CHECK</Heading>
     <Box x={30} y={201} w={330} h={28}><Copy size={18} color="#ffb0c3">Some of you fought the music.</Copy></Box>
-    <Pill x={65} y={250} w={260} h={36}><Copy size={16} color={GOLD} lines={1}>TIMING ERROR · LOWER IS BETTER</Copy></Pill>
     <Panel x={20} y={tableTop+14} w={350} h={tableHeight}><View style={{flex:1,padding:5*m.unit,gap:3*m.unit}}>
       <View pointerEvents="none" style={[StyleSheet.absoluteFill,{padding:5*m.unit,gap:3*m.unit}]}>{rows.map((_,i)=><View key={i} style={{flex:1,borderRadius:11*m.unit,backgroundColor:i%2?'#ffe8d8':'#fff6e8',borderWidth:m.unit,borderColor:'#efd4b8',flexDirection:'row',alignItems:'center',paddingHorizontal:11*m.unit}}><Copy size={17} color="#c5a38a">{i+1}</Copy><View style={{marginLeft:12*m.unit,width:29*m.unit,height:29*m.unit,borderRadius:20*m.unit,backgroundColor:'#e9d4bf'}}/><View style={{marginLeft:12*m.unit,width:90*m.unit,height:8*m.unit,borderRadius:6*m.unit,backgroundColor:'#e9d4bf'}}/></View>)}</View>
       {rows.map((r,i)=><Animated.View key={r.id} testID="last-tap-result-row" style={{flex:1,flexDirection:'row',alignItems:'center',gap:7*m.unit,paddingHorizontal:8*m.unit,borderRadius:11*m.unit,borderWidth:m.unit,borderColor:done&&r.id===loser?'#ee6980':r.id===playerId?'#edb534':'#e9cdb5',backgroundColor:done&&r.id===loser?'#ffd1d8':r.id===playerId?'#fff0a5':i%2?'#ffecdf':'#fff9ee',opacity:done||reduced?1:v([REVEAL_BEATS.firstRow+i*REVEAL_BEATS.rowStagger,REVEAL_BEATS.firstRow+i*REVEAL_BEATS.rowStagger+REVEAL_BEATS.rowArrival],[0,1]),transform:done||reduced?[]:[{translateX:v([REVEAL_BEATS.firstRow+i*REVEAL_BEATS.rowStagger,REVEAL_BEATS.firstRow+i*REVEAL_BEATS.rowStagger+REVEAL_BEATS.rowArrival],[30,0])}]}}>
@@ -376,12 +376,10 @@ function ResultsReveal({result, players, playerId, paused, revealed, onRevealed,
     {showSpotlight && <View pointerEvents="none" style={[StyleSheet.absoluteFill,{zIndex:31}]}>
       <Logo />
       {!done && loser && <>
-        <Animated.View style={{position:'absolute',left:20*m.sx,top:185*m.sy,width:350*m.sx,opacity:v([spotlightAt+150,spotlightAt+450,kickAt,kickAt+480],[0,1,1,0]),transform:reduced?[]:[{translateY:v([spotlightAt+150,spotlightAt+450,kickAt,kickAt+480],[-18*m.sy,0,0,-24*m.sy])}]}}>
-          <Copy size={14} color="#ff9dbb" style={{letterSpacing:3*m.unit,marginBottom:11*m.unit}}>RHYTHM HAS LEFT THE CHAT</Copy>
+        <Animated.View style={{position:'absolute',left:20*m.sx,top:198*m.sy,width:350*m.sx,opacity:v([spotlightAt+150,spotlightAt+450,kickAt,kickAt+480],[0,1,1,0]),transform:reduced?[]:[{translateY:v([spotlightAt+150,spotlightAt+450,kickAt,kickAt+480],[-18*m.sy,0,0,-24*m.sy])}]}}>
           <ComicCopy size={47}>{name}</ComicCopy>
-          <Copy size={20} color="#ff9dbb" style={{marginTop:15*m.unit}}>{now>=stampAt?(rows.at(-1)?.ms==null?'NO BEAT. BOLD STRATEGY.':`${formatReaction(rows.at(-1)?.ms)} · MOST TIMING ERROR`):'Your moment of shame.'}</Copy>
         </Animated.View>
-        <Animated.View testID="elimination-monster-group" style={{position:'absolute',left:68*m.sx,top:326*m.sy,width:254*m.sx,height:272*m.sy,alignItems:'center',justifyContent:'center',opacity:v([spotlightAt+100,spotlightAt+400,kickAt+650,kickAt+900],[0,1,1,0]),transform:reduced?[]:[{translateX:v([spotlightAt,kickAt,kickAt+850],[0,0,440*m.sx])},{translateY:v([spotlightAt,spotlightAt+600,kickAt,kickAt+300,kickAt+850],[65*m.sy,0,0,-60*m.sy,100*m.sy])},{scale:v([spotlightAt,spotlightAt+450,spotlightAt+650,kickAt,kickAt+850],[.55,1.06,1,1,.4])},{rotate:v([spotlightAt,kickAt-140,kickAt,kickAt+850],['0deg','0deg','-6deg','390deg'])}]}}>
+        <Animated.View testID="elimination-monster-group" style={{position:'absolute',left:68*m.sx,top:286*m.sy,width:254*m.sx,height:312*m.sy,alignItems:'center',justifyContent:'center',opacity:v([spotlightAt+100,spotlightAt+400,kickAt+650,kickAt+900],[0,1,1,0]),transform:reduced?[]:[{translateX:v([spotlightAt,kickAt,kickAt+850],[0,0,440*m.sx])},{translateY:v([spotlightAt,spotlightAt+600,kickAt,kickAt+300,kickAt+850],[65*m.sy,0,0,-60*m.sy,100*m.sy])},{scale:v([spotlightAt,spotlightAt+450,spotlightAt+650,kickAt,kickAt+850],[.55,1.06,1,1,.4])},{rotate:v([spotlightAt,kickAt-140,kickAt,kickAt+850],['0deg','0deg','-6deg','390deg'])}]}}>
           <Image testID="elimination-monster-cutout" source={eliminatedMonsters[loser]} resizeMode="contain" style={FILL}/>
           <Animated.View testID="elimination-attached-badge" style={{position:'absolute',left:-48*m.sx,top:144*m.sy,width:350*m.sx,opacity:v([stampAt,stampAt+90],[0,1]),transform:reduced?[]:[{scale:v([stampAt,stampAt+160,stampAt+340],[1.5,.94,1])},{rotate:v([stampAt,stampAt+340],['-13deg','-7deg'])}]}}>
             <LinearGradient colors={['#ff5374','#f40935','#b60028']} style={{borderWidth:2*m.unit,borderColor:'#24000a',borderRadius:17*m.unit,padding:3*m.unit,boxShadow:`0 ${5*m.unit}px 0 #190009, 0 0 ${16*m.unit}px #ff174477`}}>
@@ -389,11 +387,8 @@ function ResultsReveal({result, players, playerId, paused, revealed, onRevealed,
             </LinearGradient>
           </Animated.View>
         </Animated.View>
-        <Animated.View style={{position:'absolute',left:105*m.sx,top:622*m.sy,width:180*m.sx,height:58*m.sy,opacity:v([spotlightAt+600,spotlightAt+900,stampAt-180,stampAt],[0,1,1,0])}}>
-          <EnamelPanel><LinearGradient colors={['#fffbee','#ffe8bf']} style={{flex:1,alignItems:'center',justifyContent:'center'}}><Copy size={34} color={INK}>{formatReaction(rows.at(-1)?.ms)}</Copy></LinearGradient></EnamelPanel>
-        </Animated.View>
-        <Animated.View style={{position:'absolute',left:24*m.sx,top:658*m.sy,width:342*m.sx,opacity:v([stampAt+300,stampAt+650,kickAt,kickAt+500],[0,1,1,0]),transform:reduced?[]:[{translateY:v([stampAt+300,stampAt+650,kickAt,kickAt+500],[15*m.sy,0,0,25*m.sy])}]}}>
-          <Copy size={24} lines={1}>TWO LEFT THUMBS.</Copy><Copy size={20} color="#ff94b0" style={{marginTop:8*m.unit}}>{eliminationQuip(result.round)}</Copy>
+        <Animated.View style={{position:'absolute',left:24*m.sx,top:648*m.sy,width:342*m.sx,opacity:v([stampAt+300,stampAt+650,kickAt,kickAt+500],[0,1,1,0]),transform:reduced?[]:[{translateY:v([stampAt+300,stampAt+650,kickAt,kickAt+500],[15*m.sy,0,0,25*m.sy])}]}}>
+          <Copy size={25} color="#ffafd0" lines={1}>{eliminationQuip(result.round).toUpperCase()}</Copy>
         </Animated.View>
         {!reduced && Array.from({length:10},(_,i)=>{
           const angle=i*Math.PI/5;
@@ -571,7 +566,7 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
   const finalists = active.slice(0, 2);
 
   return <View nativeID="beat-panic" testID={`beat-panic-${phase}`} style={{ width: viewportWidth, height: viewportHeight, backgroundColor: '#250008', alignItems: 'center', justifyContent: 'center' }}>
-    <Image accessibilityLabel={phase === 'welcome' ? 'Beat Panic' : undefined} source={phase === 'welcome' ? LAST_TAP_ART.keyArt : ['target','playing','locked','results'].includes(phase) ? LAST_TAP_ART.beat : LAST_TAP_ART.background} resizeMode="cover" style={FILL} />
+    <Image accessibilityLabel={phase === 'welcome' ? 'Beat Panic' : undefined} source={phase === 'welcome' ? LAST_TAP_ART.keyArt : ['target','playing','results'].includes(phase) ? LAST_TAP_ART.arena : phase === 'locked' ? LAST_TAP_ART.beat : LAST_TAP_ART.background} resizeMode="cover" style={FILL} />
     <Layout.Provider value={metrics}>
       <View style={{ width, height, position: 'relative' }}>
         <ScreenMotion.Provider value={{clock:entry, enabled:!reducedMotion && phase !== 'playing'}}>

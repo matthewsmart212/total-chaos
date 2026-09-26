@@ -6,10 +6,10 @@ import {startBeatAudio} from './beatAudio';
 import {BEAT_WINDOW,BeatLane,BeatNote,beatChartForRound,beatTotal,freshBeatScore,noteComplete,recordBeat,releaseBeat,requiredTaps} from './beatPanicModel';
 
 const LANES=[
-  {id:0 as BeatLane,name:'LEFT',symbol:'←',rotation:'90deg',color:'#ff89c2',fill:'#ff57ae',dark:'#5b123b'},
-  {id:1 as BeatLane,name:'UP',symbol:'↑',rotation:'180deg',color:'#8dfff0',fill:'#44dfdc',dark:'#075457'},
-  {id:2 as BeatLane,name:'DOWN',symbol:'↓',rotation:'0deg',color:'#ffe66d',fill:'#ffc83d',dark:'#6b4800'},
-  {id:3 as BeatLane,name:'RIGHT',symbol:'→',rotation:'-90deg',color:'#a9a0ff',fill:'#7f72ff',dark:'#302268'},
+  {id:0 as BeatLane,name:'LEFT',rotation:'90deg',color:'#ff89c2',fill:'#ff57ae',dark:'#5b123b'},
+  {id:1 as BeatLane,name:'UP',rotation:'180deg',color:'#8dfff0',fill:'#44dfdc',dark:'#075457'},
+  {id:2 as BeatLane,name:'DOWN',rotation:'0deg',color:'#ffe66d',fill:'#ffc83d',dark:'#6b4800'},
+  {id:3 as BeatLane,name:'RIGHT',rotation:'-90deg',color:'#a9a0ff',fill:'#7f72ff',dark:'#302268'},
 ];
 type Judgment='perfect'|'nice'|'off'|'miss'|'wrong'|'hold';
 const JUDGMENTS={
@@ -121,7 +121,9 @@ export function BeatPanic({sx,sy,round=1,finalRound=false,preview=false,paused=f
 
   const previewNotes:BeatNote[]=LANES.map((lane,index)=>({id:`preview-${index}`,at:300+index*250,lane:lane.id,kind:index===1&&round>=2?'double':index===2&&round>=3?'hold':'tap',duration:index===2?800:0}));
   const notes=preview?previewNotes:chart.notes;
-  return <View testID="beat-panic-arena" style={{width:'100%',height:'100%'}}>
+  const webInteractionProps=Platform.OS==='web'?({onContextMenu:(event:any)=>event.preventDefault()} as any):{};
+  const webNoSelect=Platform.OS==='web'?({touchAction:'none',userSelect:'none',WebkitUserSelect:'none',WebkitTouchCallout:'none',WebkitTapHighlightColor:'transparent'} as any):{};
+  return <View {...webInteractionProps} testID="beat-panic-arena" style={{width:'100%',height:'100%',...webNoSelect}}>
     <View testID="beat-score-header" style={{position:'absolute',left:0,right:0,top:0,height:70*sy,borderRadius:16*u,backgroundColor:'#240914',paddingHorizontal:14*sx,justifyContent:'center'}}>
       {preview?<><Text style={label(20,'#ffe55b')}>ROUND {round} · {Math.round(chart.duration/1000)} SECONDS</Text><Text style={[label(15),{marginTop:6*sy}]}>{chart.subtitle}</Text></>:<>
         <View testID="beat-score-info" style={{position:'absolute',left:14*sx,top:11*sy,width:245*sx}}><Text style={[label(13,'#ffc5d9'),{textAlign:'left'}]}>{spectator?'ROUND IN PROGRESS':'TIMING ERROR · LOWER WINS'}</Text><Text style={[label(spectator?20:25),{textAlign:'left',marginTop:4*sy}]}>{spectator?'BEAT PANIC':total.toLocaleString()+' ms'}</Text></View>
@@ -151,6 +153,6 @@ export function BeatPanic({sx,sy,round=1,finalRound=false,preview=false,paused=f
       </View>;
     })}
     {!preview&&!spectator&&<View testID="beat-feedback" accessibilityLiveRegion="polite" style={{position:'absolute',top:feedbackY*sy,left:0,right:0,height:30*sy,borderRadius:12*u,backgroundColor:'#240914',justifyContent:'center'}}><Text style={label(good?19:15,good?'#89fff1':'#fff5d5')}>{feedback}</Text></View>}
-    {!spectator&&LANES.map(lane=>{const left=lane.id*(laneW+laneGap);return <Pressable key={lane.id} testID={`beat-tap-${lane.id}`} accessibilityRole="button" accessibilityLabel={`${lane.name.toLowerCase()} beat button`} disabled={preview||paused||!laneReady} onPressIn={()=>tap(lane.id)} onPressOut={()=>release(lane.id)} onPress={event=>{if(Platform.OS==='web'&&(event.nativeEvent as any).detail===0){tap(lane.id);release(lane.id);}}} style={({pressed})=>({position:'absolute',left,top:controlY*sy,width:laneW,height:76*sy,minHeight:44,borderRadius:18*u,padding:3*u,backgroundColor:'#fff0d5',borderWidth:2*u,borderColor:lane.color,transform:[{scale:pressed?.95:1}],boxShadow:`0 5px 0 ${lane.dark}, 0 0 18px ${lane.color}30`,...(Platform.OS==='web'?{touchAction:'none',userSelect:'none'} as any:{})})}><LinearGradient colors={[lane.color,lane.fill,lane.color]} style={{flex:1,borderRadius:14*u,alignItems:'center',justifyContent:'center',borderWidth:2*u,borderColor:lane.dark}}><Text style={label(35,'#240914')}>{lane.symbol}</Text><Text style={[label(9,'#240914'),{marginTop:-5*u}]}>{lane.name}</Text></LinearGradient></Pressable>;})}
+    {!spectator&&LANES.map(lane=>{const left=lane.id*(laneW+laneGap);return <Pressable {...webInteractionProps} key={lane.id} testID={`beat-tap-${lane.id}`} accessibilityRole="button" accessibilityLabel={`${lane.name.toLowerCase()} beat button`} disabled={preview||paused||!laneReady} onPressIn={()=>tap(lane.id)} onPressOut={()=>release(lane.id)} onPress={event=>{if(Platform.OS==='web'&&(event.nativeEvent as any).detail===0){tap(lane.id);release(lane.id);}}} style={({pressed})=>({position:'absolute',left,top:controlY*sy,width:laneW,height:76*sy,minHeight:44,borderRadius:18*u,padding:3*u,backgroundColor:'#fff0d5',borderWidth:2*u,borderColor:lane.color,transform:[{scale:pressed?.95:1}],boxShadow:`0 5px 0 ${lane.dark}, 0 0 18px ${lane.color}30`,...webNoSelect})}><LinearGradient colors={[lane.color,lane.fill,lane.color]} style={{flex:1,borderRadius:14*u,alignItems:'center',justifyContent:'center',borderWidth:2*u,borderColor:lane.dark}}><BeatArrow size={40*u} rotation={lane.rotation} color={lane.dark}/><Text selectable={false} style={[label(9,'#240914'),{marginTop:-4*u,...webNoSelect}]}>{lane.name}</Text></LinearGradient></Pressable>;})}
   </View>;
 }

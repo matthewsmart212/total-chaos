@@ -580,15 +580,7 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
             <Logo large />
             <Box x={34} y={286} w={322} h={31} decorative><Copy size={20} color="#fff3da" style={{ transform: [{ rotate: '-2deg' }], textShadowColor:'#560017',textShadowOffset:{width:0,height:2},textShadowRadius:2 }}>FOUR DIRECTIONS. ONE SURVIVOR.</Copy></Box>
             <Art source={LAST_TAP_ART.welcome} x={35} y={313} w={320} h={246} />
-            <Pill x={27} y={566} w={336} h={60}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%', justifyContent: 'space-between', paddingHorizontal: 6 }}>
-                <Pressable accessibilityRole="button" accessibilityLabel="Remove pretend player" disabled={players.length <= 2} onPress={() => setPlayers(createTapPlayers(playerId, playerName, players.length - 2))} style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', opacity: players.length <= 2 ? 0.3 : 1 }}><Copy size={32}>−</Copy></Pressable>
-                <View><Copy size={17} color={GOLD}>TEST: {players.length - 1} PRETEND {players.length === 2 ? 'PLAYER' : 'PLAYERS'}</Copy><Copy size={13}>{players.length} total · {players.length - 1} {players.length === 2 ? 'elimination' : 'eliminations'}</Copy></View>
-                <Pressable accessibilityRole="button" accessibilityLabel="Add pretend player" disabled={players.length >= 8} onPress={() => setPlayers(createTapPlayers(playerId, playerName, players.length))} style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', opacity: players.length >= 8 ? 0.3 : 1 }}><Copy size={32}>+</Copy></Pressable>
-              </View>
-            </Pill>
-            <Pill x={45} y={647} w={300} h={54}><Copy size={18} color={GOLD}>RHYTHM KNOCKOUT · 4 LANES</Copy></Pill>
-            <Button x={27} y={741} w={336} h={66} label="HOW TO PLAY" onPress={() => goPhase('rules')} />
+            <Button x={27} y={620} w={336} h={66} label="HOW TO PLAY" onPress={() => goPhase('rules')} />
 
           </> : phase === 'rules' ? <>
             <Logo /><Heading x={12} y={135} w={366} h={62} size={42}>HOW TO PLAY</Heading>

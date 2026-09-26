@@ -4,6 +4,7 @@ import {LinearGradient} from 'expo-linear-gradient';
 import {DISPLAY_FONT} from './brand';
 import {startBeatAudio} from './beatAudio';
 import {BEAT_WINDOW,DOUBLE_GAP,BeatLane,BeatNote,beatChartForRound,beatTotal,freshBeatScore,noteComplete,recordBeat,releaseBeat,requiredTaps} from './beatPanicModel';
+import {haptic} from '../../src/haptics';
 
 const LANES=[
   {id:0 as BeatLane,name:'LEFT',rotation:'90deg',color:'#ff89c2',fill:'#ff57ae',dark:'#5b123b'},
@@ -30,7 +31,7 @@ export function BeatJudgmentEffect({kind,progress,reduced,size,width,top,u}:{kin
   </View>;
 }
 
-function BeatArrow({size,rotation,outline=false,color}:{size:number;rotation:string;outline?:boolean;color:string}){
+export function BeatArrow({size,rotation,outline=false,color}:{size:number;rotation:string;outline?:boolean;color:string}){
   const k=size/72;
   const shape=(fill:string,inset:number)=><>
     <View style={{position:'absolute',left:(23+inset)*k,top:(5+inset)*k,width:(26-2*inset)*k,height:(34-inset)*k,backgroundColor:fill}}/>
@@ -81,12 +82,12 @@ export function BeatPanic({sx,sy,round=1,finalRound=false,preview=false,paused=f
           for(let tapIndex=score.current.errors[index].length;tapIndex<requiredTaps(note);tapIndex++){
             const key=`${index}-tap-${tapIndex}`;
             if(time>note.at+tapIndex*DOUBLE_GAP+BEAT_WINDOW&&!reportedMisses.current.has(key)){
-              reportedMisses.current.add(key);showJudgment(note.lane,'miss',time);setFeedback('MISSED · +500 ms');feedbackAt.current=time;
+              reportedMisses.current.add(key);showJudgment(note.lane,'miss',time);haptic('warning');setFeedback('MISSED · +500 ms');feedbackAt.current=time;
             }
           }
           const releaseKey=`${index}-release`;
           if(note.kind==='hold'&&time>note.at+note.duration+BEAT_WINDOW&&score.current.releases[index]===null&&!reportedMisses.current.has(releaseKey)){
-            reportedMisses.current.add(releaseKey);activeHolds.current.delete(note.lane);showJudgment(note.lane,'miss',time);setFeedback('DROPPED HOLD · +500 ms');feedbackAt.current=time;
+            reportedMisses.current.add(releaseKey);activeHolds.current.delete(note.lane);showJudgment(note.lane,'miss',time);haptic('warning');setFeedback('DROPPED HOLD · +500 ms');feedbackAt.current=time;
           }
         });
         if(time-feedbackAt.current>650)setFeedback(finalRound?'SURVIVE THE PANIC':'KEEP IT GOING');
@@ -102,10 +103,11 @@ export function BeatPanic({sx,sy,round=1,finalRound=false,preview=false,paused=f
     if(preview||paused||!laneReady||spectator||done.current||start.current===null)return;
     const time=performance.now()-start.current;if(time>=chart.duration)return;
     const hit=recordBeat(chart,score.current,time,lane);score.current=hit.score;feedbackAt.current=time;renderScore(value=>value+1);
-    if(hit.note?.kind==='hold'){activeHolds.current.add(lane);showJudgment(lane,'hold',time);setFeedback('HOLD IT…');}
+    if(hit.note?.kind==='hold'){activeHolds.current.add(lane);showJudgment(lane,'hold',time);haptic('medium');setFeedback('HOLD IT…');}
     else {
       const kind:Judgment=hit.error===null?'wrong':hit.error<=55?'perfect':hit.error<=120?'nice':'off';
       showJudgment(lane,kind,time);
+      haptic(kind==='perfect'?'medium':kind==='nice'?'light':kind==='off'?'selection':'warning');
       setFeedback(hit.error===null?`${hit.wrongLane?'WRONG DIRECTION':'EXTRA TAP'} · +350 ms`:`${hit.error<=55?'PERFECT!':hit.error<=120?'NICE!':'OFF BEAT'} · ${hit.error} ms`);
     }
     setTotal(beatTotal(chart,score.current,time));
@@ -117,7 +119,7 @@ export function BeatPanic({sx,sy,round=1,finalRound=false,preview=false,paused=f
     activeHolds.current.delete(lane);score.current=hit.score;renderScore(value=>value+1);feedbackAt.current=time;
     const kind:Judgment=hit.error!==null&&hit.error<=90?'perfect':hit.error!==null&&hit.error<=170?'nice':'off';
     const releaseLabel=kind==='perfect'?'PERFECT RELEASE!':kind==='nice'?'NICE RELEASE!':(hit.offset??0)<0?'EARLY RELEASE':'LATE RELEASE';
-    showJudgment(lane,kind,time);setFeedback(`${releaseLabel} · ${hit.error} ms`);setTotal(beatTotal(chart,score.current,time));
+    showJudgment(lane,kind,time);haptic(kind==='perfect'?'heavy':kind==='nice'?'medium':'warning');setFeedback(`${releaseLabel} · ${hit.error} ms`);setTotal(beatTotal(chart,score.current,time));
   };
 
   const previewNotes:BeatNote[]=LANES.map((lane,index)=>({id:`preview-${index}`,at:300+index*250,lane:lane.id,kind:index===1&&round>=2?'double':index===2&&round>=3?'hold':'tap',duration:index===2?800:0}));

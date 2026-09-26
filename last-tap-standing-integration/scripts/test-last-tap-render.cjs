@@ -89,7 +89,8 @@ test('the chart renders four lanes, four controls, doubles and holds', () => {
 
 test('rules describe only Beat Panic mechanics', () => {
   const html = renderGame('rules',createTapPlayers('grumble','Tester'));
-  for (const text of ['FOLLOW THE ARROWS','DOUBLE TAP','HOLD NOTES','SURVIVE THE ROUND']) assert(html.includes(text));
+  for (const text of ['FOLLOW THE BEAT','DOUBLE IT','HOLD &amp; RELEASE',"DON&#x27;T COME LAST"]) assert(html.includes(text));
+  assert.equal(observed.filter(node => node.testID === 'focused-rule-card').length,4);
   assert(!html.includes('TARGET HUNT'));
   assert(!html.includes('CHAOS SNAP'));
   assert(observed.some(node => node.accessibilityLabel === 'Beat Panic options'));

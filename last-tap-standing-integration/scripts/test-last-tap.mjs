@@ -9,7 +9,7 @@ import {tapRevealTiming} from '../src/lastTapPresentation.ts';
 
 test('Beat Panic exposes only the knockout flow phases', () => {
   assert.deepEqual(LAST_TAP_PHASES, ['welcome','rules','target','playing','locked','results','final','eliminated','winner']);
-  assert.deepEqual(TAP_PACING, {preview:6,locked:3,final:5,entryMs:720,exitMs:180});
+  assert.deepEqual(TAP_PACING, {preview:6,locked:3,final:5,entryMs:1200,exitMs:180});
 });
 
 test('demo player count supports short games through an eight-player bracket', () => {

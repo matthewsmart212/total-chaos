@@ -1,5 +1,5 @@
 import { unlockBeatAudio } from './src/beatAudio';
-import { BeatPanic } from './src/BeatPanic';
+import { BeatArrow, BeatPanic } from './src/BeatPanic';
 import { useMotionClock } from './src/gameMotion';
 import React, { createContext, ReactNode, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, AppState, Easing, Image, ImageSourcePropType, Modal, Platform, Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
@@ -11,6 +11,7 @@ import { playSound } from './src/sounds';
 import { fadeLastTapMusicTo } from '../src/sounds';
 import { predictionPoints, lastTapScoreRows } from './src/lastTapModel';
 import { eliminationQuip, REVEAL_BEATS, tapRevealTiming, FINALE_BEATS } from './src/lastTapPresentation';
+import { haptic, type HapticCue } from '../src/haptics';
 
 type Prediction = { pick: MonsterId | null; points: number };
 
@@ -99,11 +100,14 @@ function Box({ x, y, w, h, children, style, decorative = false }: Bounds & { chi
   const m = useContext(Layout);
   const motion = useContext(ScreenMotion);
   // Keep the backdrop anchored; reveal title, artwork, information, then actions.
-  const delay = y < 125 ? 0 : y < 225 ? 60 : y < 430 ? 120 : y < 650 ? 170 : 220;
-  const progress = motion.clock?.interpolate({inputRange:[delay, delay+320],outputRange:[0,1],extrapolate:'clamp'});
+  const delay = y < 125 ? 0 : y < 225 ? 130 : y < 430 ? 285 : y < 650 ? 455 : 620;
+  const progress = motion.clock?.interpolate({inputRange:[delay, delay+230],outputRange:[0,1],extrapolate:'clamp'});
   return <Animated.View pointerEvents={decorative ? 'none' : 'box-none'} style={[{ position: 'absolute', left: x * m.sx, top: y * m.sy, width: w * m.sx, height: h * m.sy }, style, motion.enabled && progress ? {
     opacity:progress,
-    transform:[{translateY:motion.clock!.interpolate({inputRange:[delay,delay+420],outputRange:[12*m.unit,0],extrapolate:'clamp'})}],
+    transform:[
+      {translateY:motion.clock!.interpolate({inputRange:[delay,delay+310,delay+500],outputRange:[26*m.unit,-3*m.unit,0],extrapolate:'clamp'})},
+      {scale:motion.clock!.interpolate({inputRange:[delay,delay+310,delay+500],outputRange:[.94,1.02,1],extrapolate:'clamp'})},
+    ],
   } : {}]}>{children}</Animated.View>;
 }
 function Art({ source, ...box }: Bounds & { source: ImageSourcePropType }) {
@@ -125,9 +129,9 @@ function Pill({ children, ...box }: Bounds & { children: ReactNode }) {
   const { unit } = useContext(Layout);
   return <Box {...box} style={{ backgroundColor: '#210008ea', borderWidth: 2 * unit, borderColor: '#ff315d', borderRadius: 26 * unit, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 9 * unit }}>{children}</Box>;
 }
-function Button({ label, onPress, disabled = false, ...box }: Bounds & { label: string; onPress: () => void; disabled?: boolean }) {
+function Button({ label, onPress, disabled = false, hapticCue = 'selection', ...box }: Bounds & { label: string; onPress: () => void; disabled?: boolean; hapticCue?: HapticCue | false }) {
   const { unit } = useContext(Layout);
-  return <Box {...box}><Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} accessibilityState={{ disabled }} onPress={onPress} onPressIn={() => playSound('click')} style={({ pressed }) => ({ flex: 1, minHeight: 44, padding: 4 * unit, borderRadius: 40 * unit, borderWidth: 2 * unit, borderColor: '#ff4561', backgroundColor: '#4b0012', opacity: disabled ? .55 : 1, transform: [{ scale: pressed ? .97 : 1 }], boxShadow: `0 ${5 * unit}px 0 #22000a, 0 0 ${14 * unit}px #ff164999` })}><LinearGradient colors={['#ff7690', '#ff1744', '#ef002d', '#ff1c39']} locations={[0, .14, .75, 1]} style={{ flex: 1, borderRadius: 35 * unit, borderWidth: 2 * unit, borderColor: '#fff4db', padding: 3 * unit }}><View style={{ flex: 1, borderRadius: 31 * unit, borderWidth: unit, borderColor: '#ffc4c8', justifyContent: 'center', paddingHorizontal: 10 * unit }}><Copy size={31} lines={1} style={{ textShadowColor: '#3d0012', textShadowOffset: { width: 1, height: 3 * unit }, textShadowRadius: 1 }}>{label}</Copy></View></LinearGradient></Pressable></Box>;
+  return <Box {...box}><Pressable accessibilityRole="button" accessibilityLabel={label} disabled={disabled} accessibilityState={{ disabled }} onPress={onPress} onPressIn={() => {playSound('click');if(hapticCue)haptic(hapticCue);}} style={({ pressed }) => ({ flex: 1, minHeight: 44, padding: 4 * unit, borderRadius: 40 * unit, borderWidth: 2 * unit, borderColor: '#ff4561', backgroundColor: '#4b0012', opacity: disabled ? .55 : 1, transform: [{ scale: pressed ? .97 : 1 }], boxShadow: `0 ${5 * unit}px 0 #22000a, 0 0 ${14 * unit}px #ff164999` })}><LinearGradient colors={['#ff7690', '#ff1744', '#ef002d', '#ff1c39']} locations={[0, .14, .75, 1]} style={{ flex: 1, borderRadius: 35 * unit, borderWidth: 2 * unit, borderColor: '#fff4db', padding: 3 * unit }}><View style={{ flex: 1, borderRadius: 31 * unit, borderWidth: unit, borderColor: '#ffc4c8', justifyContent: 'center', paddingHorizontal: 10 * unit }}><Copy size={31} lines={1} style={{ textShadowColor: '#3d0012', textShadowOffset: { width: 1, height: 3 * unit }, textShadowRadius: 1 }}>{label}</Copy></View></LinearGradient></Pressable></Box>;
 }
 function Avatar({ id, size, out = false, selected = false }: { id: MonsterId; size: number; out?: boolean; selected?: boolean }) {
   const { unit } = useContext(Layout);
@@ -173,13 +177,17 @@ function EnamelPanel({children, style, selected = false}: {children:ReactNode;st
     <View style={{flex:1,borderRadius:18*unit,borderWidth:1.5*unit,borderColor:selected?GOLD:CREAM,overflow:'hidden'}}>{children}</View>
   </View>;
 }
-function CountdownDial({value,size=156,total=5,running=true}: {value:number;size?:number;total?:number;running?:boolean}) {
+function CountdownDial({value,size=156,total=5,running=true,hapticCountdown=false}: {value:number;size?:number;total?:number;running?:boolean;hapticCountdown?:boolean}) {
   const {unit} = useContext(Layout);
   const pulse = useRef(new Animated.Value(1)).current;
   const progress = useRef(new Animated.Value(value/total)).current;
   const previous = useRef(value);
   useEffect(()=>{
-    if(previous.current!==value){progress.setValue(value/total);previous.current=value;}
+    if(previous.current!==value){
+      progress.setValue(value/total);
+      if(running&&hapticCountdown&&value>0&&value<=3)haptic(value===1?'medium':'light');
+      previous.current=value;
+    }
     if(!running)return;
     const animation=Animated.timing(progress,{toValue:Math.max(0,value-1)/total,duration:1000,easing:Easing.linear,useNativeDriver:true});
     animation.start();
@@ -208,6 +216,26 @@ function CountdownDial({value,size=156,total=5,running=true}: {value:number;size
       <Animated.View style={{transform:[{scale:pulse}]}}><Copy size={size*.55} color={INK}>{value}</Copy></Animated.View>
     </LinearGradient>
   </View>;
+}
+
+function RuleCard({index,title,description,kind}:{index:number;title:string;description:string;kind:'directions'|'double'|'hold'|'out'}){
+  const m=useContext(Layout), motion=useContext(ScreenMotion);
+  const delay=360+index*145;
+  const reveal=motion.clock?.interpolate({inputRange:[delay,delay+260],outputRange:[0,1],extrapolate:'clamp'});
+  const colorPairs:[string,string][]=[['#ff63ad','#6b123f'],['#ffe45d','#744800'],['#9b92ff','#32236d'],['#ff5b73','#7c112b']];
+  const colors=colorPairs[index];
+  return <Animated.View testID="focused-rule-card" style={{flex:1,flexDirection:'row',alignItems:'center',borderRadius:15*m.unit,borderWidth:m.unit,borderColor:'#e5c6a1',backgroundColor:index%2?'#ffeadc':'#fff6e9',padding:8*m.unit,gap:10*m.sx,opacity:motion.enabled&&reveal?reveal:1,transform:motion.enabled&&motion.clock?[{translateX:motion.clock.interpolate({inputRange:[delay,delay+300],outputRange:[index%2?-28*m.sx:28*m.sx,0],extrapolate:'clamp'})},{scale:motion.clock.interpolate({inputRange:[delay,delay+220,delay+340],outputRange:[.94,1.015,1],extrapolate:'clamp'})}]:[]}}>
+    <LinearGradient colors={colors} style={{width:68*m.sx,height:'100%',minHeight:62*m.sy,borderRadius:12*m.unit,borderWidth:1.5*m.unit,borderColor:'#fff4dd',alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
+      {kind==='directions'?<View style={{width:54*m.unit,height:46*m.unit}}>{[
+        {left:0,top:13,rotation:'90deg',color:'#ff88c2'},{left:19,top:-1,rotation:'180deg',color:'#83efe7'},
+        {left:19,top:27,rotation:'0deg',color:'#ffdd55'},{left:38,top:13,rotation:'-90deg',color:'#9c92ff'},
+      ].map((arrow,i)=><View key={i} style={{position:'absolute',left:arrow.left*m.unit,top:arrow.top*m.unit}}><BeatArrow size={18*m.unit} rotation={arrow.rotation} color={arrow.color}/></View>)}</View>
+      :kind==='double'?<View style={{alignItems:'center'}}><BeatArrow size={33*m.unit} rotation="180deg" color="#ffc93c"/><View style={{position:'absolute',right:-9*m.unit,top:-5*m.unit,borderRadius:12*m.unit,backgroundColor:CREAM,paddingHorizontal:4*m.unit,paddingVertical:1*m.unit}}><Copy size={11} color={INK}>×2</Copy></View></View>
+      :kind==='hold'?<View style={{height:50*m.unit,alignItems:'center'}}><LinearGradient colors={['#a9a0ff','#ffffff33']} style={{width:10*m.unit,height:28*m.unit,borderRadius:6*m.unit}}/><View style={{position:'absolute',bottom:0}}><BeatArrow size={30*m.unit} rotation="0deg" color="#a9a0ff"/></View></View>
+      :<Copy size={37} color={CREAM}>✕</Copy>}
+    </LinearGradient>
+    <View style={{flex:1,minWidth:0}}><View style={{flexDirection:'row',alignItems:'center',gap:7*m.unit}}><View style={{width:22*m.unit,height:22*m.unit,borderRadius:12*m.unit,backgroundColor:INK,alignItems:'center',justifyContent:'center'}}><Copy size={10} color={GOLD}>{`0${index+1}`}</Copy></View><Copy size={18} color={INK} lines={1} style={{flex:1,textAlign:'left'}}>{title}</Copy></View><Copy size={13.5} color="#612539" body lines={2} style={{textAlign:'left',marginTop:4*m.sy}}>{description}</Copy></View>
+  </Animated.View>;
 }
 
 function WinnerConfetti({paused}: {paused:boolean}) {
@@ -248,7 +276,7 @@ function FinalShowdown({finalists,seconds,paused}: {finalists:TapPlayer[];second
     </React.Fragment>)}
     <Box x={161} y={438} w={68} h={65}><ComicCopy size={46}>VS</ComicCopy></Box>
     <Box x={28} y={712} w={334} h={27}><Copy size={18} color="#ffadc7">Two thumbs. One fragile ego.</Copy></Box>
-    <Box x={78} y={757} w={234} h={66} style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:14*m.unit}}><CountdownDial running={!paused} total={5} value={Math.ceil(seconds)} size={62}/><View><Copy size={20}>SHOWDOWN IN</Copy><Copy size={14} color="#ffadc7" style={{marginTop:5*m.unit}}>Make this one count.</Copy></View></Box>
+    <Box x={78} y={757} w={234} h={66} style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:14*m.unit}}><CountdownDial running={!paused} hapticCountdown total={5} value={Math.ceil(seconds)} size={62}/><View><Copy size={20}>SHOWDOWN IN</Copy><Copy size={14} color="#ffadc7" style={{marginTop:5*m.unit}}>Make this one count.</Copy></View></Box>
   </View></ScreenMotion.Provider>;
 }
 
@@ -258,7 +286,10 @@ function FinaleReveal({result,players,playerId,bonusPoints,paused,onSettled,onRe
   const {clock,now,reduced}=useMotionClock(result.tied?b.tieEnd:b.end,paused,()=>{if(result.tied)onReplay();},time=>{
     if(result.tied)return;
     if(time>=b.champion&&!settled.current){settled.current=true;onSettled();}
-    for(const at of [b.stamp,b.exit,b.champion])if(time>=at&&!cues.current.has(at)){cues.current.add(at);playSound(at===b.exit?'teleport':'click');}
+    for(const at of [b.stamp,b.exit,b.champion])if(time>=at&&!cues.current.has(at)){
+      cues.current.add(at);playSound(at===b.exit?'teleport':'click');
+      haptic(at===b.champion?'success':at===b.stamp?'heavy':'warning');
+    }
   },true);
   const v=(inputRange:number[],outputRange:any[])=>clock.interpolate({inputRange,outputRange,extrapolate:'clamp'});
   // Preserve lobby order: fastest-first ordering would spoil the result.
@@ -299,7 +330,7 @@ function FinaleReveal({result,players,playerId,bonusPoints,paused,onSettled,onRe
         <WinnerConfetti paused={paused}/>
         <Box x={35} y={680} w={320} h={136}><EnamelPanel selected style={{height:'100%'}}><View testID="winner-result-content" style={{flex:1,paddingVertical:14*m.sy,paddingHorizontal:14*m.sx,alignItems:'center',justifyContent:'center',gap:6*m.sy}}><Copy size={16} color="#ffe4a6">WINNING TIMING ERROR</Copy><Copy size={36} color={GOLD}>{formatReaction(winnerTime)}</Copy><Copy size={18}>+{reduced?100:Math.round(100*Math.min(1,Math.max(0,(now-b.champion-900)/1000)))} POINTS</Copy></View></EnamelPanel></Box>
       </>}
-      {result.tied&&now>=4000?<Box x={93} y={745} w={204} h={66} style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:14*m.unit}}><CountdownDial size={63} total={5} value={Math.max(1,Math.ceil((b.tieEnd-now)/1000))} running={!paused}/><Copy size={20}>REMATCH IN</Copy></Box>:!crowned?<Box x={25} y={758} w={340} h={40}><Copy size={19} color="#ffafc8">{now>=b.stamp?'A devastating day for that ego.':'Hold your breath. Blame your thumb.'}</Copy></Box>:null}
+      {result.tied&&now>=4000?<Box x={93} y={745} w={204} h={66} style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:14*m.unit}}><CountdownDial size={63} total={5} value={Math.max(1,Math.ceil((b.tieEnd-now)/1000))} running={!paused} hapticCountdown/><Copy size={20}>REMATCH IN</Copy></Box>:!crowned?<Box x={25} y={758} w={340} h={40}><Copy size={19} color="#ffafc8">{now>=b.stamp?'A devastating day for that ego.':'Hold your breath. Blame your thumb.'}</Copy></Box>:null}
     </Animated.View>}
     {recap&&<Animated.View testID="finale-score-recap" style={[StyleSheet.absoluteFill,{opacity:reduced?1:v([b.scores,b.scores+550],[0,1]),transform:reduced?[]:[{translateY:v([b.scores,b.scores+550],[24*m.sy,0])}]}]}>
       <Heading x={17} y={165} w={356} h={88} size={38}>{'THE CHAOS\nPAYS OFF'}</Heading>
@@ -357,6 +388,12 @@ function ResultsReveal({result, players, playerId, paused, revealed, onRevealed,
   const nextArrival = loser?kickAt+350:spotlightAt;
   const remainingPlayers = players.filter(p=>p.eliminatedRound===null && p.id !== loser);
   const survivors = remainingPlayers.length;
+  const hapticCues=useRef(new Set<string>());
+  useEffect(()=>{
+    if(paused)return;
+    if(loser&&now>=badgeAt&&!hapticCues.current.has('stamp')){hapticCues.current.add('stamp');haptic('heavy');}
+    if(done&&prediction&&!hapticCues.current.has('prediction')){hapticCues.current.add('prediction');haptic(prediction.points?'success':'light');}
+  },[badgeAt,done,loser,now,paused,prediction]);
   return <>
     <View style={StyleSheet.absoluteFill} accessibilityElementsHidden={showSpotlight} importantForAccessibility={showSpotlight?'no-hide-descendants':'auto'}>
     <Logo />
@@ -400,7 +437,7 @@ function ResultsReveal({result, players, playerId, paused, revealed, onRevealed,
         <Animated.View style={{position:'absolute',left:16*m.sx,top:185*m.sy,width:358*m.sx,alignItems:'center',opacity:done?1:v([nextArrival,nextArrival+370],[0,1]),transform:reduced?[]:[{translateY:done?0:v([nextArrival,nextArrival+370],[18*m.sy,0])}]}}>
           <ComicCopy size={survivors===1||result.tied?35:46}>{survivors===1?'BEAT PANIC CHAMPION!':result.tied?'EVERYONE STAYS IN!':'NEXT ROUND'}</ComicCopy>
           <Copy size={16} color="#ff9fbc" style={{letterSpacing:2*m.unit,marginTop:14*m.unit}}>{survivors===1?'WINNER REVEAL IN':'STARTS IN'}</Copy>
-          <View style={{marginTop:12*m.unit}}><CountdownDial value={remaining} total={REVEAL_BEATS.continueSeconds} size={112} running={done&&!paused}/></View>
+          <View style={{marginTop:12*m.unit}}><CountdownDial value={remaining} total={REVEAL_BEATS.continueSeconds} size={112} running={done&&!paused} hapticCountdown/></View>
         </Animated.View>
         <Animated.View style={{position:'absolute',left:32*m.sx,top:416*m.sy,width:326*m.sx,height:66*m.sy,opacity:done?1:v([nextArrival+150,nextArrival+530],[0,1])}}>
           {prediction ? <EnamelPanel style={{height:'100%'}}>
@@ -550,6 +587,15 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
     }, Math.min(1, seconds) * 1000);
     return () => clearTimeout(timer);
   }, [phase, seconds, blocked, pageReady, result, players]);
+  useEffect(()=>{
+    if(blocked||!pageReady||localOut||phase!=='target'||seconds<=0||seconds>3)return;
+    haptic(seconds===1?'medium':'light');
+  },[blocked,localOut,pageReady,phase,seconds]);
+  useEffect(()=>{
+    if(!pageReady||blocked)return;
+    if(phase==='winner')haptic('success');
+    else if(phase==='eliminated')haptic('error');
+  },[blocked,pageReady,phase]);
 
   function resume() { setPaused(false); setShowOptions(false); if (phase === 'playing') prepareRound(round); }
   function continueFromResults() {
@@ -576,20 +622,20 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
             <Button x={27} y={700} w={336} h={66} label="HOW TO PLAY" onPress={() => goPhase('rules')} />
 
           </> : phase === 'rules' ? <>
-            <Logo /><Heading x={12} y={135} w={366} h={62} size={42}>HOW TO PLAY</Heading>
-            <Panel x={24} y={224} w={342} h={496}><View testID="focused-rules" style={{flex:1,padding:12*metrics.unit,gap:10*metrics.sy}}>
-              <View style={{height:84*metrics.sy,justifyContent:'center'}}><Copy size={21} color={INK}>LAST ONE STANDING WINS</Copy><Copy size={15} color="#743145" body style={{marginTop:7*metrics.sy}}>{'One player out per round.\nSurvivors earn +100 points.'}</Copy></View>
+            <Logo /><Heading x={12} y={132} w={366} h={58} size={40}>HOW TO PLAY</Heading>
+            <Panel x={21} y={202} w={348} h={526}><View testID="focused-rules" style={{flex:1,padding:9*metrics.unit,gap:7*metrics.sy}}>
+              <LinearGradient colors={['#5b1024','#30000e']} style={{height:70*metrics.sy,borderRadius:14*metrics.unit,borderWidth:1.5*metrics.unit,borderColor:'#ff6687',alignItems:'center',justifyContent:'center',paddingHorizontal:10*metrics.sx}}>
+                <Copy size={22} color={GOLD} lines={1}>LAST MONSTER STANDING</Copy>
+                <Copy size={13.5} color="#ffc0d2" body lines={1} style={{marginTop:5*metrics.sy}}>Lowest timing error survives each round.</Copy>
+              </LinearGradient>
               {[
-                {icon:'← ↑ ↓ →',title:'FOLLOW THE ARROWS',description:'Tap the matching lane as each arrow reaches the line.'},
-                {icon:'×2',title:'DOUBLE TAP',description:'Hit the lane twice when the double marker lands.'},
-                {icon:'HOLD',title:'HOLD NOTES',description:'Press and keep holding until the trail finishes.'},
-                {icon:'OUT',title:'SURVIVE THE ROUND',description:'Lowest timing error stays in. One player is eliminated.'},
-              ].map((rule,i)=><View key={rule.title} testID="focused-rule-card" style={{flex:1,flexDirection:'row',alignItems:'center',borderRadius:16*metrics.unit,backgroundColor:i%2?'#ffe3cf':'#ffeadb',padding:10*metrics.unit,gap:12*metrics.sx}}>
-                <View style={{width:70*metrics.sx,height:62*metrics.sy,borderRadius:13*metrics.unit,backgroundColor:'#390010',alignItems:'center',justifyContent:'center'}}><Copy size={rule.icon.length>4?17:22} color={GOLD} lines={1}>{rule.icon}</Copy></View>
-                <View style={{flex:1}}><Copy size={19} color={INK} style={{textAlign:'left'}}>{rule.title}</Copy><Copy size={14} color={INK} body style={{textAlign:'left',marginTop:5*metrics.sy}}>{rule.description}</Copy></View>
-              </View>)}
+                {kind:'directions' as const,title:'FOLLOW THE BEAT',description:'Tap the matching lane when its arrow reaches the line.'},
+                {kind:'double' as const,title:'DOUBLE IT',description:'The ×2 marker means two quick taps on the same lane.'},
+                {kind:'hold' as const,title:'HOLD & RELEASE',description:'Hold while the trail drains. Release exactly at the end.'},
+                {kind:'out' as const,title:"DON'T COME LAST",description:'Highest timing error is out. Survivors earn +100.'},
+              ].map((rule,i)=><RuleCard key={rule.title} index={i} {...rule}/>)}
             </View></Panel>
-            <Button x={55} y={744} w={280} h={66} label={assetError ? 'RETRY IMAGES' : assetsReady ? 'GOT IT!' : 'LOADING…'} disabled={!assetsReady && !assetError} onPress={() => assetError ? setRetry(n => n + 1) : prepareRound(1, players.length === 2)} />
+            <Button x={55} y={744} w={280} h={66} label={assetError ? 'RETRY IMAGES' : assetsReady ? 'GOT IT!' : 'LOADING…'} disabled={!assetsReady && !assetError} hapticCue="medium" onPress={() => assetError ? setRetry(n => n + 1) : prepareRound(1, players.length === 2)} />
           </> : localOut && (phase === 'target' || phase === 'playing' || phase === 'locked') ? <>
             <Logo />
             <Pill x={100} y={121} w={190} h={33}><Copy size={20}>WATCH PARTY</Copy></Pill>
@@ -602,7 +648,7 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
                   {active.map(p=>{
                     const selected=favourite===p.id;
                     const cardWidth=active.length>6?82:active.length===4||active.length===2?169:112;
-                    return <Pressable key={p.id} testID={`prediction-card-${p.id}`} accessibilityRole="button" accessibilityLabel={`Predict ${p.name}`} accessibilityState={{selected,disabled:blocked||!pageReady}} disabled={blocked||!pageReady} onPress={()=>{if(phaseRef.current!=='target'||blocked||!pageReady)return;pickRef.current=p.id;setFavourite(p.id);playSound('click');}} style={({pressed})=>({width:cardWidth*metrics.sx,height:(active.length<=3?248:149)*metrics.sy,minHeight:44,transform:[{scale:pressed?.96:1}]})}>
+                    return <Pressable key={p.id} testID={`prediction-card-${p.id}`} accessibilityRole="button" accessibilityLabel={`Predict ${p.name}`} accessibilityState={{selected,disabled:blocked||!pageReady}} disabled={blocked||!pageReady} onPress={()=>{if(phaseRef.current!=='target'||blocked||!pageReady)return;pickRef.current=p.id;setFavourite(p.id);playSound('click');haptic('selection');}} style={({pressed})=>({width:cardWidth*metrics.sx,height:(active.length<=3?248:149)*metrics.sy,minHeight:44,transform:[{scale:pressed?.96:1}]})}>
                       <EnamelPanel selected={selected} style={{flex:1,borderRadius:17*metrics.unit}}><View style={{flex:1,alignItems:'center',justifyContent:'center',gap:7*metrics.unit,padding:6*metrics.unit}}>
                         <Image source={monsters[p.id]} resizeMode="contain" style={{width:'100%',height:active.length<=3?155*metrics.sy:86*metrics.sy}}/><Copy size={17} lines={1} style={{width:'100%'}} color={selected?GOLD:CREAM}>{p.name}</Copy>
                       </View></EnamelPanel>
@@ -612,7 +658,7 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
                 </View>
               </Box>
               <Box x={74} y={711} w={242} h={95} style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:15*metrics.unit}}>
-                <CountdownDial running={!blocked&&pageReady} total={TAP_PACING.preview} value={Math.ceil(seconds)} size={84}/>
+                <CountdownDial running={!blocked&&pageReady} hapticCountdown total={TAP_PACING.preview} value={Math.ceil(seconds)} size={84}/>
                 <View style={{flex:1}}><Copy size={22}>PICKS LOCK IN</Copy><Copy size={15} color="#ffadc7" style={{marginTop:7*metrics.unit}}>{favourite?'Pick saved. Feeling lucky?':'Tap a player to predict'}</Copy></View>
               </Box>
             </> : <>
@@ -637,7 +683,7 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
             <Box x={22} y={208} w={346} h={31}><Copy size={19} color="#ffadc7">{reaction!==null&&reaction<=2600?'Your thumb has serious range.':'The rhythm has filed a complaint.'}</Copy></Box>
             <Art source={victoryPoses[playerId]} x={55} y={255} w={280} h={215} />
             <Box x={30} y={476} w={330} h={145}><EnamelPanel selected style={{height:'100%'}}><LinearGradient colors={['#561728','#290512']} style={{flex:1,alignItems:'center',justifyContent:'center',paddingVertical:18*metrics.sy,paddingHorizontal:18*metrics.sx,gap:10*metrics.sy}}><Copy size={49} color={GOLD}>{formatReaction(reaction)}</Copy><Copy size={20}>TOTAL TIMING ERROR</Copy></LinearGradient></EnamelPanel></Box>
-            <Pill x={30} y={641} w={330} h={72}><View style={{flexDirection:'row',alignItems:'center',gap:18*metrics.unit}}><CountdownDial running={!blocked&&pageReady} total={TAP_PACING.locked} value={Math.ceil(seconds)} size={52}/><Copy size={23}>RESULTS IN</Copy></View></Pill>
+            <Pill x={30} y={641} w={330} h={72}><View style={{flexDirection:'row',alignItems:'center',gap:18*metrics.unit}}><CountdownDial running={!blocked&&pageReady} hapticCountdown total={TAP_PACING.locked} value={Math.ceil(seconds)} size={52}/><Copy size={23}>RESULTS IN</Copy></View></Pill>
             <SurvivalBar players={players} localId={playerId} y={737} />
           </> : phase === 'eliminated' ? <>
             <Logo /><Heading x={14} y={125} w={362} h={95} size={44}>BEATEN.</Heading>
@@ -658,16 +704,16 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
               <View style={{ flexDirection: 'row', width: '100%', marginTop: 6 * metrics.unit }}>{resultRows.slice(0, 2).map(r => <View key={r.id} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 * metrics.unit, padding: 5 * metrics.unit, borderRightWidth: r.id === resultRows[0]?.id ? metrics.unit : 0, borderColor: '#edcc84' }}><Avatar id={r.id} size={38 * metrics.unit} /><View style={{ flex: 1 }}><Copy size={14} color={INK} lines={1} style={{ textAlign: 'left' }}>{nameOf(r.id)}</Copy><Copy size={21} color={INK} lines={1} style={{ textAlign: 'left' }}>{formatReaction(r.ms)}</Copy></View></View>)}</View>
             </View></Panel>
             <Box x={25} y={714} w={340} h={24}><Copy size={17} lines={1} color={GOLD}>YOUR SCORE: {(players.find(p=>p.id===playerId)?.score || 0) + bonusPoints}{bonusPoints > 0 ? ` · INCLUDES ${bonusPoints} BONUS` : ''}</Copy></Box>
-            <Button x={35} y={749} w={320} h={68} label="BACK TO THE CHAOS" onPress={onFinish} />
+            <Button x={35} y={749} w={320} h={68} label="BACK TO THE CHAOS" hapticCue="success" onPress={onFinish} />
           </>}
         </Animated.View>
         </ScreenMotion.Provider>
-        <Box x={0} y={0} w={44} h={44}><Pressable accessibilityRole="button" accessibilityLabel="Beat Panic options" onPress={() => setShowOptions(true)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', opacity: .78 }}><Copy size={21}>•••</Copy></Pressable></Box>
+        <Box x={0} y={0} w={44} h={44}><Pressable accessibilityRole="button" accessibilityLabel="Beat Panic options" onPress={() => {haptic('selection');setShowOptions(true);}} style={{ flex: 1, alignItems: 'center', justifyContent: 'center', opacity: .78 }}><Copy size={21}>•••</Copy></Pressable></Box>
       </View>
       <Modal visible={showOptions || paused} transparent animationType="fade" onRequestClose={resume}>
         <View style={{ flex: 1, backgroundColor: '#160005e8', justifyContent: 'center', alignItems: 'center', padding: 24 }}><View style={{ width: '100%', maxWidth: 390, borderRadius: 24, padding: 25, backgroundColor: INK, borderWidth: 2, borderColor: RED, gap: 18 }}>
           <Copy size={35}>TAKE A BREATHER</Copy><Copy size={17} body>{phase === 'playing' ? 'We’ll restart this chart so your timing stays fair.' : 'Thumb having a tea break?'}</Copy>
-          {[['RESUME', resume], ['PLAY AGAIN', restart], ['BACK TO LOBBY', onExit]].map(([label, action]) => <Pressable key={label as string} accessibilityRole="button" onPress={action as () => void} style={{ paddingVertical: 15, borderRadius: 24, backgroundColor: '#e90636' }}><Copy size={23}>{label as string}</Copy></Pressable>)}
+          {[['RESUME', resume, 'selection'], ['PLAY AGAIN', restart, 'medium'], ['BACK TO LOBBY', onExit, 'warning']].map(([label, action, cue]) => <Pressable key={label as string} accessibilityRole="button" onPress={()=>{haptic(cue as HapticCue);(action as () => void)();}} style={{ paddingVertical: 15, borderRadius: 24, backgroundColor: '#e90636' }}><Copy size={23}>{label as string}</Copy></Pressable>)}
           <Copy size={13} color="#e9a7b5" body>Solo preview: your taps are real; {players.length - 1} {players.length === 2 ? 'rival is' : 'rivals are'} simulated.</Copy>
           {history.length > 0 && <Copy size={14} color={GOLD}>{history.length} round{history.length === 1 ? '' : 's'} recorded this game</Copy>}
         </View></View>

@@ -70,6 +70,36 @@ test('early and late timing errors are symmetric', () => {
   }
 });
 
+test('tap, double and hold timing use the exact chart windows', () => {
+  const tap = beatChartForRound(1).notes[0];
+  const tapChart = {...beatChartForRound(1), notes:[tap]};
+  for (const offset of [-BEAT_WINDOW, BEAT_WINDOW]) {
+    const hit = recordBeat(tapChart, freshBeatScore(tapChart), tap.at + offset, tap.lane);
+    assert.equal(hit.error, BEAT_WINDOW);
+    assert.equal(beatTotal(tapChart, hit.score), BEAT_WINDOW);
+  }
+  const outside = recordBeat(tapChart, freshBeatScore(tapChart), tap.at + BEAT_WINDOW + 1, tap.lane);
+  assert.equal(outside.error, null);
+  assert.equal(beatTotal(tapChart, outside.score), MISS_PENALTY + EXTRA_PENALTY);
+
+  const double = beatChartForRound(2).notes.find(note => note.kind === 'double');
+  const doubleChart = {...beatChartForRound(2), notes:[double]};
+  let doubleScore = recordBeat(doubleChart, freshBeatScore(doubleChart), double.at, double.lane).score;
+  doubleScore = recordBeat(doubleChart, doubleScore, double.at + DOUBLE_GAP, double.lane).score;
+  assert.equal(beatTotal(doubleChart, doubleScore), 0);
+
+  const hold = beatChartForRound(3).notes.find(note => note.kind === 'hold');
+  const holdChart = {...beatChartForRound(3), notes:[hold]};
+  for (const offset of [-137, 137]) {
+    const pressed = recordBeat(holdChart, freshBeatScore(holdChart), hold.at, hold.lane).score;
+    const released = releaseBeat(holdChart, pressed, hold.at + hold.duration + offset, hold.lane);
+    assert.equal(released.error, 137);
+    assert.equal(released.offset, offset);
+    assert.equal(beatTotal(holdChart, released.score), 137);
+  }
+  assert.equal(beatTotal(holdChart, freshBeatScore(holdChart)), MISS_PENALTY * 2);
+});
+
 test('wrong directions and mashing add penalties without consuming valid notes', () => {
   const chart = beatChartForRound(1);
   const first = chart.notes[0];

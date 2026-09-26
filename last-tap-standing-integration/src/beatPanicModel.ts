@@ -146,15 +146,17 @@ export function recordBeat(chart: BeatChart, score: BeatScore, at: number, lane:
 export function releaseBeat(chart: BeatChart, score: BeatScore, at: number, lane: BeatLane) {
   let index = -1;
   let distance = Infinity;
+  let offset = 0;
   chart.notes.forEach((note, noteIndex) => {
     if (note.kind !== 'hold' || note.lane !== lane || score.errors[noteIndex].length === 0 || score.releases[noteIndex] !== null) return;
-    const candidate = Math.abs(note.at + note.duration - at);
-    if (candidate < distance) { index = noteIndex; distance = candidate; }
+    const expectedAt = note.at + note.duration;
+    const candidate = Math.abs(expectedAt - at);
+    if (candidate < distance) { index = noteIndex; distance = candidate; offset = Math.round(at - expectedAt); }
   });
-  if (index < 0) return {score, error:null, note:null, noteIndex:-1};
+  if (index < 0) return {score, error:null, offset:null, note:null, noteIndex:-1};
   const releases = [...score.releases];
   releases[index] = Math.min(MISS_PENALTY, Math.round(distance));
-  return {score:{...score, releases}, error:releases[index], note:chart.notes[index], noteIndex:index};
+  return {score:{...score, releases}, error:releases[index], offset, note:chart.notes[index], noteIndex:index};
 }
 
 export function beatTotal(chart: BeatChart, score: BeatScore, elapsed = chart.duration) {

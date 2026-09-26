@@ -3,7 +3,7 @@ import {Animated,Platform,Pressable,Text,View} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
 import {DISPLAY_FONT} from './brand';
 import {startBeatAudio} from './beatAudio';
-import {BEAT_WINDOW,BeatLane,BeatNote,beatChartForRound,beatTotal,freshBeatScore,noteComplete,recordBeat,releaseBeat,requiredTaps} from './beatPanicModel';
+import {BEAT_WINDOW,DOUBLE_GAP,BeatLane,BeatNote,beatChartForRound,beatTotal,freshBeatScore,noteComplete,recordBeat,releaseBeat,requiredTaps} from './beatPanicModel';
 
 const LANES=[
   {id:0 as BeatLane,name:'LEFT',rotation:'90deg',color:'#ff89c2',fill:'#ff57ae',dark:'#5b123b'},
@@ -80,7 +80,7 @@ export function BeatPanic({sx,sy,round=1,finalRound=false,preview=false,paused=f
         chart.notes.forEach((note,index)=>{
           for(let tapIndex=score.current.errors[index].length;tapIndex<requiredTaps(note);tapIndex++){
             const key=`${index}-tap-${tapIndex}`;
-            if(time>note.at+tapIndex*150+BEAT_WINDOW&&!reportedMisses.current.has(key)){
+            if(time>note.at+tapIndex*DOUBLE_GAP+BEAT_WINDOW&&!reportedMisses.current.has(key)){
               reportedMisses.current.add(key);showJudgment(note.lane,'miss',time);setFeedback('MISSED · +500 ms');feedbackAt.current=time;
             }
           }
@@ -116,7 +116,8 @@ export function BeatPanic({sx,sy,round=1,finalRound=false,preview=false,paused=f
     if(!hit.note)return;
     activeHolds.current.delete(lane);score.current=hit.score;renderScore(value=>value+1);feedbackAt.current=time;
     const kind:Judgment=hit.error!==null&&hit.error<=90?'perfect':hit.error!==null&&hit.error<=170?'nice':'off';
-    showJudgment(lane,kind,time);setFeedback(`${kind==='perfect'?'PERFECT RELEASE!':kind==='nice'?'NICE RELEASE!':'LATE RELEASE'} · ${hit.error} ms`);setTotal(beatTotal(chart,score.current,time));
+    const releaseLabel=kind==='perfect'?'PERFECT RELEASE!':kind==='nice'?'NICE RELEASE!':(hit.offset??0)<0?'EARLY RELEASE':'LATE RELEASE';
+    showJudgment(lane,kind,time);setFeedback(`${releaseLabel} · ${hit.error} ms`);setTotal(beatTotal(chart,score.current,time));
   };
 
   const previewNotes:BeatNote[]=LANES.map((lane,index)=>({id:`preview-${index}`,at:300+index*250,lane:lane.id,kind:index===1&&round>=2?'double':index===2&&round>=3?'hold':'tap',duration:index===2?800:0}));
@@ -144,8 +145,14 @@ export function BeatPanic({sx,sy,round=1,finalRound=false,preview=false,paused=f
           if(note.lane!==lane.id||(!preview&&noteComplete(score.current,note,index)))return null;
           const holding=!preview&&note.kind==='hold'&&score.current.errors[index].length>0&&score.current.releases[index]===null;
           const trailHeight=note.kind==='hold'?Math.max(42*u,note.duration/chart.approach*travel):0;
+          const trailTop=-trailHeight+noteSize*.45;
+          const liveTrail=holding?{
+            top:motion.interpolate({inputRange:[note.at,note.at+note.duration],outputRange:[trailTop,noteSize*.45],extrapolate:'clamp'}),
+            height:motion.interpolate({inputRange:[note.at,note.at+note.duration],outputRange:[trailHeight,0],extrapolate:'clamp'}),
+            opacity:motion.interpolate({inputRange:[note.at,note.at+note.duration-40,note.at+note.duration],outputRange:[1,1,0],extrapolate:'clamp'}),
+          }:{top:trailTop,height:trailHeight,opacity:1};
           return <Animated.View key={note.id} testID={`beat-note-${note.id}`} style={{position:'absolute',top:0,left:(laneW-noteSize)/2,width:noteSize,height:noteSize,transform:[{translateY:holding?travel:preview?[.12,.32,.56,.78][lane.id]*travel:motion.interpolate({inputRange:[note.at-chart.approach,note.at],outputRange:[0,travel],extrapolate:'extend'})}]}}>
-            {note.kind==='hold'&&<LinearGradient testID="beat-hold-trail" colors={[lane.fill,`${lane.color}aa`]} style={{position:'absolute',left:noteSize*.37,top:-trailHeight+noteSize*.45,width:noteSize*.26,height:trailHeight,borderRadius:9*u,borderWidth:1*u,borderColor:'#fff5d5'}}/>}
+            {note.kind==='hold'&&<Animated.View testID="beat-hold-trail" style={[{position:'absolute',left:noteSize*.37,width:noteSize*.26,borderRadius:9*u,borderWidth:1*u,borderColor:'#fff5d5',overflow:'hidden'},liveTrail]}><LinearGradient colors={[lane.fill,`${lane.color}aa`]} style={{position:'absolute',left:0,right:0,top:0,bottom:0}}/></Animated.View>}
             <BeatArrow size={noteSize} rotation={lane.rotation} color={lane.fill}/><NoteBadge note={note} u={u}/>
           </Animated.View>;
         })}

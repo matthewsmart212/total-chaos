@@ -1,5 +1,5 @@
 // Keep the reading beats independent from the animation durations.
-export const REVEAL_BEATS = { firstRow:650, rowStagger:480, rowArrival:320, tableRead:2400, spotlight:3900, stampHold:3000, exit:1100 } as const;
+export const REVEAL_BEATS = { firstRow:450, rowStagger:260, rowArrival:220, tableRead:1500, spotlight:2300, stampHold:1800, exit:800, continueSeconds:3 } as const;
 export function tapRevealTiming(playerCount:number, hasElimination=true) {
   const tableSettled=REVEAL_BEATS.firstRow+Math.max(0,playerCount-1)*REVEAL_BEATS.rowStagger+REVEAL_BEATS.rowArrival;
   const spotlightAt=tableSettled+REVEAL_BEATS.tableRead;

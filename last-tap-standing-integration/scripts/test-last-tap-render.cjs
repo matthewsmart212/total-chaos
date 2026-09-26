@@ -97,12 +97,15 @@ test('rules describe only Beat Panic mechanics', () => {
 
 test('active preview and play screens use the Beat Panic arena', () => {
   const players = createTapPlayers('grumble','Tester');
-  for (const phase of ['target','playing']) {
+  for (const phase of ['target','playing','locked']) {
     const html = renderGame(phase,players);
     assert(observed.some(node => node.testID === `beat-panic-${phase}`));
-    assert(observed.some(node => node.testID === 'beat-panic-arena'));
-    assert.equal(observed.filter(node => node.testID?.startsWith('beat-tap-')).length,4);
-    assert(observed.some(node => node.kind === 'Image' && node.accessibilityLabel === 'Beat Panic'));
+    const background = observed.find(node => node.testID === 'beat-panic-background');
+    assert.match(background.source.uri,/beat-panic-arena-v2\.webp$/);
+    if (phase !== 'locked') {
+      assert(observed.some(node => node.testID === 'beat-panic-arena'));
+      assert.equal(observed.filter(node => node.testID?.startsWith('beat-tap-')).length,4);
+    }
   }
 });
 

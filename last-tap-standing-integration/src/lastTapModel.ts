@@ -6,7 +6,7 @@ export type LastTapPhase = typeof LAST_TAP_PHASES[number];
 export type TapPlayer = { id: MonsterId; name: string; eliminatedRound: number | null; score: number; awardedThroughRound: number };
 export type TapResult = { id: MonsterId; ms: number | null; wrongTaps: number };
 export type TapRound = { round: number; results: TapResult[]; eliminatedId: MonsterId | null; tied: boolean };
-export const TAP_PACING = { preview: 6, locked: 5, final: 5, entryMs:720, exitMs:180 } as const;
+export const TAP_PACING = { preview: 6, locked: 3, final: 5, entryMs:720, exitMs:180 } as const;
 
 export function createTapPlayers(localId: MonsterId, name: string, opponentCount = 7): TapPlayer[] {
   const count = Number.isFinite(opponentCount) ? Math.max(1, Math.min(7, Math.floor(opponentCount))) : 7;

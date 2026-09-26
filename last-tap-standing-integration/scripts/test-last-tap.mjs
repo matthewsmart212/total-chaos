@@ -9,7 +9,7 @@ import {tapRevealTiming} from '../src/lastTapPresentation.ts';
 
 test('Beat Panic exposes only the knockout flow phases', () => {
   assert.deepEqual(LAST_TAP_PHASES, ['welcome','rules','target','playing','locked','results','final','eliminated','winner']);
-  assert.deepEqual(TAP_PACING, {preview:6,locked:5,final:5,entryMs:720,exitMs:180});
+  assert.deepEqual(TAP_PACING, {preview:6,locked:3,final:5,entryMs:720,exitMs:180});
 });
 
 test('demo player count supports short games through an eight-player bracket', () => {
@@ -87,9 +87,9 @@ test('watch-party predictions and final score recap stay deterministic', () => {
 test('elimination reveal pacing keeps every key moment readable', () => {
   for (const count of [2,3,4,5,6,7,8]) {
     const timing = tapRevealTiming(count);
-    assert(timing.spotlightAt - timing.tableSettled >= 2400);
-    assert(timing.stampAt - timing.spotlightAt >= 3900);
-    assert(timing.kickAt - timing.stampAt >= 3000);
-    assert(timing.end - timing.kickAt >= 1000);
+    assert(timing.spotlightAt - timing.tableSettled >= 1500);
+    assert(timing.stampAt - timing.spotlightAt >= 2300);
+    assert(timing.kickAt - timing.stampAt >= 1800);
+    assert(timing.end - timing.kickAt >= 800);
   }
 });

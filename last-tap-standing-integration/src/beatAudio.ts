@@ -1,5 +1,5 @@
 import {Platform} from 'react-native';
-import {BeatChart} from './beatPanicModel';
+import {BeatChart,DOUBLE_GAP} from './beatPanicModel';
 let context:AudioContext|null=null;
 export function unlockBeatAudio(){
   if(Platform.OS!=='web'||typeof window==='undefined')return;
@@ -25,7 +25,7 @@ export function startBeatAudio(chart:BeatChart){
   for(const note of chart.notes){
     const [start,end]=laneTones[note.lane];
     tone(note.at,start,end,note.kind==='double'?1.15:1,'sine');
-    if(note.kind==='double')tone(note.at+150,start,end,.9,'sine');
+    if(note.kind==='double')tone(note.at+DOUBLE_GAP,start,end,.9,'sine');
     if(note.kind==='hold')tone(note.at+note.duration,start*.8,end*.8,.75,'triangle');
   }
   return ()=>{bus.disconnect();nodes.forEach(n=>{try{n.stop();}catch{}});};

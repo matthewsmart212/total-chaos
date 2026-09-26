@@ -339,7 +339,7 @@ function ResultsReveal({result, players, playerId, paused, revealed, onRevealed,
   const badgeAt = stampAt - 1000;
   const {clock, now, reduced} = useMotionClock(end, paused, onRevealed, undefined, true);
   const done = revealed;
-  const [remaining, setRemaining] = useState(5);
+  const [remaining, setRemaining] = useState<number>(REVEAL_BEATS.continueSeconds);
   const continueRef = useRef(onContinue); continueRef.current = onContinue;
   useEffect(() => {
     if (!done || paused) return;
@@ -400,7 +400,7 @@ function ResultsReveal({result, players, playerId, paused, revealed, onRevealed,
         <Animated.View style={{position:'absolute',left:16*m.sx,top:185*m.sy,width:358*m.sx,alignItems:'center',opacity:done?1:v([nextArrival,nextArrival+370],[0,1]),transform:reduced?[]:[{translateY:done?0:v([nextArrival,nextArrival+370],[18*m.sy,0])}]}}>
           <ComicCopy size={survivors===1||result.tied?35:46}>{survivors===1?'BEAT PANIC CHAMPION!':result.tied?'EVERYONE STAYS IN!':'NEXT ROUND'}</ComicCopy>
           <Copy size={16} color="#ff9fbc" style={{letterSpacing:2*m.unit,marginTop:14*m.unit}}>{survivors===1?'WINNER REVEAL IN':'STARTS IN'}</Copy>
-          <View style={{marginTop:12*m.unit}}><CountdownDial value={remaining} size={112} running={done&&!paused}/></View>
+          <View style={{marginTop:12*m.unit}}><CountdownDial value={remaining} total={REVEAL_BEATS.continueSeconds} size={112} running={done&&!paused}/></View>
         </Animated.View>
         <Animated.View style={{position:'absolute',left:32*m.sx,top:416*m.sy,width:326*m.sx,height:66*m.sy,opacity:done?1:v([nextArrival+150,nextArrival+530],[0,1])}}>
           {prediction ? <EnamelPanel style={{height:'100%'}}>
@@ -567,7 +567,7 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
   const finalists = active.slice(0, 2);
 
   return <View nativeID="beat-panic" testID={`beat-panic-${phase}`} style={{ width: viewportWidth, height: viewportHeight, backgroundColor: '#250008', alignItems: 'center', justifyContent: 'center' }}>
-    <Image accessibilityLabel={phase === 'welcome' ? 'Beat Panic' : undefined} source={phase === 'welcome' ? LAST_TAP_ART.keyArt : ['target','playing','results'].includes(phase) ? LAST_TAP_ART.arena : phase === 'locked' ? LAST_TAP_ART.beat : LAST_TAP_ART.background} resizeMode="cover" style={FILL} />
+    <Image testID="beat-panic-background" accessibilityLabel={phase === 'welcome' ? 'Beat Panic' : undefined} source={phase === 'welcome' ? LAST_TAP_ART.keyArt : ['target','playing','locked','results'].includes(phase) ? LAST_TAP_ART.arena : LAST_TAP_ART.background} resizeMode="cover" style={FILL} />
     <Layout.Provider value={metrics}>
       <View style={{ width, height, position: 'relative' }}>
         <ScreenMotion.Provider value={{clock:entry, enabled:!reducedMotion && phase !== 'playing'}}>
@@ -637,7 +637,7 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
             <Box x={22} y={208} w={346} h={31}><Copy size={19} color="#ffadc7">{reaction!==null&&reaction<=2600?'Your thumb has serious range.':'The rhythm has filed a complaint.'}</Copy></Box>
             <Art source={victoryPoses[playerId]} x={55} y={255} w={280} h={215} />
             <Box x={30} y={476} w={330} h={145}><EnamelPanel selected style={{height:'100%'}}><LinearGradient colors={['#561728','#290512']} style={{flex:1,alignItems:'center',justifyContent:'center',paddingVertical:18*metrics.sy,paddingHorizontal:18*metrics.sx,gap:10*metrics.sy}}><Copy size={49} color={GOLD}>{formatReaction(reaction)}</Copy><Copy size={20}>TOTAL TIMING ERROR</Copy></LinearGradient></EnamelPanel></Box>
-            <Pill x={30} y={641} w={330} h={72}><View style={{flexDirection:'row',alignItems:'center',gap:18*metrics.unit}}><CountdownDial running={!blocked&&pageReady} total={5} value={Math.ceil(seconds)} size={52}/><Copy size={23}>RESULTS IN</Copy></View></Pill>
+            <Pill x={30} y={641} w={330} h={72}><View style={{flexDirection:'row',alignItems:'center',gap:18*metrics.unit}}><CountdownDial running={!blocked&&pageReady} total={TAP_PACING.locked} value={Math.ceil(seconds)} size={52}/><Copy size={23}>RESULTS IN</Copy></View></Pill>
             <SurvivalBar players={players} localId={playerId} y={737} />
           </> : phase === 'eliminated' ? <>
             <Logo /><Heading x={14} y={125} w={362} h={95} size={44}>BEATEN.</Heading>

@@ -23,10 +23,14 @@ import { MemeTeleport } from './src/gameMotion';
 import { haptic, type HapticCue } from './src/haptics';
 import { MonsterId, MONSTER_IDS } from './src/memeMasterModel';
 import { BODY_FONT, DISPLAY_FONT, DISPLAY_FONT_CSS, DISPLAY_FONT_NAME, DISPLAY_FONT_SOURCE, loadWebDisplayFont, TOTAL_CHAOS_LOGO } from './src/brand';
-import { playNarration, playSound, preloadSound, stopAllNarration, stopAllSounds, stopSound, setSoundtrackWanted, playSoundtrack, pauseSoundtrack, playMemeMasterMusic, setMemeMasterMusicWanted } from './src/sounds';
+import { playNarration, playSound, preloadSound, stopAllNarration, stopAllSounds, stopSound, setSoundtrackWanted, playSoundtrack, pauseSoundtrack, playMemeMasterMusic, setMemeMasterMusicWanted, playLastTapMusic, setLastTapMusicWanted } from './src/sounds';
 import { assetUri } from './src/assetUri';
+import LastTapSpinnerArtwork, { LAST_TAP_SPINNER_SOURCES } from './last-tap-standing-integration/LastTapSpinnerArtwork';
 
 const MemeMasterGame = React.lazy(() => import('./MemeMasterGame'));
+const LastTapStandingScreen = React.lazy(() => import('./last-tap-standing-integration/LastTapStandingScreen'));
+
+type SpinnerGame = 'memeMaster' | 'lastTapStanding';
 
 type Screen =
   | 'home'
@@ -38,12 +42,13 @@ type Screen =
   | 'spinner'
   | 'round'
   | 'memeMaster'
+  | 'lastTapStanding'
   | 'winner'
   | 'standings'
   | 'progress'
   | 'podium';
 
-type FlowScreen = Exclude<Screen, 'home' | 'mode' | 'join' | 'character' | 'spinner' | 'memeMaster'>;
+type FlowScreen = Exclude<Screen, 'home' | 'mode' | 'join' | 'character' | 'spinner' | 'memeMaster' | 'lastTapStanding'>;
 
 type GameMode = 'quick' | 'full' | 'custom';
 
@@ -105,6 +110,7 @@ const plates: Record<Screen, DesignPlate> = {
   spinner: { width: DESIGN_WIDTH, height: DESIGN_HEIGHT },
   round: { width: DESIGN_WIDTH, height: DESIGN_HEIGHT },
   memeMaster: { width: DESIGN_WIDTH, height: DESIGN_HEIGHT },
+  lastTapStanding: { width: DESIGN_WIDTH, height: DESIGN_HEIGHT },
   winner: { width: DESIGN_WIDTH, height: DESIGN_HEIGHT },
   standings: { width: DESIGN_WIDTH, height: DESIGN_HEIGHT },
   progress: { width: DESIGN_WIDTH, height: DESIGN_HEIGHT },
@@ -172,32 +178,52 @@ const MEME_SPINNER_POSTER = require('./assets/packed/meme-master-blue/spinner-ca
 type SpinnerPose = 'flat' | 'left' | 'right';
 type SpinnerPoses = Record<SpinnerPose, ImageSourcePropType>;
 
+type SpinnerCardSpec = {
+  artwork?: 'lastTap';
+  game?: SpinnerGame;
+  id: string;
+  poses?: SpinnerPoses;
+  source?: ImageSourcePropType;
+};
+
 function getSpinnerArt() {
   return {
   button: require('./assets/packed/flow/spinner-button.webp'),
-  posters: [
-    MEME_SPINNER_POSTER,
-    require('./assets/packed/spinner/chaos-tap.webp'),
-    require('./assets/packed/spinner/tipsy-doodles.webp'),
-  ],
-  // Pre-projected cards for native (see scripts/make-spinner-cards.mjs).
-  poses: [
+  cards: [
     {
-      flat: require('./assets/packed/spinner/poses/meme-master-flat.webp'),
-      left: require('./assets/packed/spinner/poses/meme-master-left.webp'),
-      right: require('./assets/packed/spinner/poses/meme-master-right.webp'),
+      game: 'memeMaster',
+      id: 'memeMaster',
+      poses: {
+        flat: require('./assets/packed/spinner/poses/meme-master-flat.webp'),
+        left: require('./assets/packed/spinner/poses/meme-master-left.webp'),
+        right: require('./assets/packed/spinner/poses/meme-master-right.webp'),
+      },
+      source: MEME_SPINNER_POSTER,
     },
     {
-      flat: require('./assets/packed/spinner/poses/chaos-tap-flat.webp'),
-      left: require('./assets/packed/spinner/poses/chaos-tap-left.webp'),
-      right: require('./assets/packed/spinner/poses/chaos-tap-right.webp'),
+      id: 'chaosTap',
+      poses: {
+        flat: require('./assets/packed/spinner/poses/chaos-tap-flat.webp'),
+        left: require('./assets/packed/spinner/poses/chaos-tap-left.webp'),
+        right: require('./assets/packed/spinner/poses/chaos-tap-right.webp'),
+      },
+      source: require('./assets/packed/spinner/chaos-tap.webp'),
     },
     {
-      flat: require('./assets/packed/spinner/poses/tipsy-doodles-flat.webp'),
-      left: require('./assets/packed/spinner/poses/tipsy-doodles-left.webp'),
-      right: require('./assets/packed/spinner/poses/tipsy-doodles-right.webp'),
+      id: 'tipsyDoodles',
+      poses: {
+        flat: require('./assets/packed/spinner/poses/tipsy-doodles-flat.webp'),
+        left: require('./assets/packed/spinner/poses/tipsy-doodles-left.webp'),
+        right: require('./assets/packed/spinner/poses/tipsy-doodles-right.webp'),
+      },
+      source: require('./assets/packed/spinner/tipsy-doodles.webp'),
     },
-  ] as SpinnerPoses[],
+    {
+      artwork: 'lastTap',
+      game: 'lastTapStanding',
+      id: 'lastTapStanding',
+    },
+  ] as SpinnerCardSpec[],
   title: require('./assets/packed/flow/spinner-title.webp'),
   };
 }
@@ -878,7 +904,7 @@ function CharacterScreen({
 
 const POSTER_TOP = (DESIGN_HEIGHT - 780) / 2;
 const SPINNER_GAP = 48;
-const SPINNER_CARD_COUNT = 3;
+const SPINNER_CARD_COUNT = 4;
 // Web animates via CSS-equivalent JS updates; native runs the carousel on the
 // UI thread. Native never uses perspective/rotate transforms: iOS renders them
 // clipped, so the yaw is baked into the pose images and only translate, scale
@@ -888,7 +914,9 @@ const SPINNER_UNIT = new Animated.Value(1);
 // Pose images share one canvas padded by this many design units around the
 // 390x780 card so glow and yaw overhang have room.
 const SPINNER_POSE_PAD = 55;
-// One continuous run. A multiple of the card count so it lands on Meme Master.
+// One continuous run. 24 is a multiple of the card count, so adding a card's
+// index lands on that poster. Chaos Tap and Tipsy Doodles stay in the carousel
+// but are not playable games yet.
 const SPIN_SLOTS = 24;
 const SPIN_DURATION = 4200;
 // Long enough for native to mount Meme Master under the spinner before the warp.
@@ -897,6 +925,7 @@ const SPINNER_LANDING_HOLD = 800;
 const SLOT_RANGE = [-1.5, -1, 0, 1, 1.5];
 
 function SpinnerCard({
+  artwork,
   index,
   landing,
   landingScale,
@@ -906,13 +935,14 @@ function SpinnerCard({
   source,
   zIndex,
 }: {
+  artwork?: 'lastTap';
   index: number;
   landing: boolean;
   landingScale: Animated.Value;
   position: Animated.Value;
-  poses: SpinnerPoses;
+  poses?: SpinnerPoses;
   scale: number;
-  source: ImageSourcePropType;
+  source?: ImageSourcePropType;
   zIndex: number;
 }) {
   const motion = useMemo(() => {
@@ -942,6 +972,9 @@ function SpinnerCard({
   const isMeme = source === MEME_SPINNER_POSTER;
   const testID = isMeme ? 'meme-spinner-poster' : undefined;
   const onError = () => console.warn(`Spinner poster ${index} failed to load`);
+  const face = artwork === 'lastTap'
+    ? <LastTapSpinnerArtwork scale={scale} />
+    : <Image testID={testID} onError={onError} resizeMode="contain" source={source} style={styles.fullImage} />;
   const slotBox = {
     height: 780 * scale,
     left: ((DESIGN_WIDTH - 390) / 2) * scale,
@@ -950,6 +983,30 @@ function SpinnerCard({
   };
 
   if (Platform.OS !== 'web') {
+    if (artwork === 'lastTap') {
+      return (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.spinnerPoster,
+            slotBox,
+            {
+              opacity: motion.opacity,
+              zIndex,
+              transform: [
+                { translateX: motion.translateX },
+                { translateY: motion.translateY },
+                { scale: motion.scale },
+                { rotateZ: motion.rotateZ },
+              ],
+            },
+          ]}
+        >
+          {face}
+        </Animated.View>
+      );
+    }
+
     const poseBox = {
       height: (780 + SPINNER_POSE_PAD * 2) * scale,
       left: -SPINNER_POSE_PAD * scale,
@@ -970,9 +1027,9 @@ function SpinnerCard({
           },
         ]}
       >
-        <Animated.Image onError={onError} resizeMode="contain" source={poses.left} style={[poseBox, { opacity: motion.poseLeft }]} />
-        <Animated.Image onError={onError} resizeMode="contain" source={poses.right} style={[poseBox, { opacity: motion.poseRight }]} />
-        <Animated.Image testID={testID} onError={onError} resizeMode="contain" source={poses.flat} style={[poseBox, { opacity: motion.poseFlat }]} />
+        <Animated.Image onError={onError} resizeMode="contain" source={poses?.left} style={[poseBox, { opacity: motion.poseLeft }]} />
+        <Animated.Image onError={onError} resizeMode="contain" source={poses?.right} style={[poseBox, { opacity: motion.poseRight }]} />
+        <Animated.Image testID={testID} onError={onError} resizeMode="contain" source={poses?.flat} style={[poseBox, { opacity: motion.poseFlat }]} />
       </Animated.View>
     );
   }
@@ -982,7 +1039,7 @@ function SpinnerCard({
       pointerEvents="none"
       style={[
         styles.spinnerPoster,
-        styles.spinnerPosterShadow,
+        artwork === 'lastTap' ? null : styles.spinnerPosterShadow,
         slotBox,
         {
           opacity: motion.opacity,
@@ -998,6 +1055,7 @@ function SpinnerCard({
         },
       ]}
     >
+      {artwork === 'lastTap' ? face : (
       <View
         style={[
           styles.fill,
@@ -1008,8 +1066,9 @@ function SpinnerCard({
             : null,
         ]}
       >
-        <Image testID={testID} onError={onError} resizeMode="contain" source={source} style={styles.fullImage} />
+        {face}
       </View>
+      )}
     </Animated.View>
   );
 }
@@ -1020,11 +1079,14 @@ function SpinnerScreen({
   scale,
 }: {
   go: (screen: Screen) => void;
-  onLanded?: () => void;
+  onLanded?: (game: SpinnerGame) => void;
   scale: number;
 }) {
   const [frontIndex, setFrontIndex] = useState(0);
+  const [landIndex, setLandIndex] = useState(0);
+  const [forcedLanding, setForcedLanding] = useState<SpinnerGame | 'random'>('random');
   const [spinning, setSpinning] = useState(false);
+  const landedGame = useRef<SpinnerGame>('memeMaster');
   const frontRef = useRef(0);
   const cancelled = useRef(false);
   const landingGlow = useRef(new Animated.Value(0)).current;
@@ -1065,10 +1127,15 @@ function SpinnerScreen({
     preloadSound('spinner');
     preloadSound('spinnerStop');
     preloadSound('teleport');
+    preloadSound('lastTapStanding');
+    preloadSound('lastTapSpinner');
+    preloadSound('lastTapWelcome');
+    preloadSound('lastTapRules');
     void warmImageGroup(
       [
-        ...getSpinnerArt().posters,
-        ...(Platform.OS === 'web' ? [] : getSpinnerArt().poses.flatMap((pose) => [pose.flat, pose.left, pose.right])),
+        ...getSpinnerArt().cards.flatMap((card) => (card.source ? [card.source] : [])),
+        ...(Platform.OS === 'web' ? [] : getSpinnerArt().cards.flatMap((card) => (card.poses ? [card.poses.flat, card.poses.left, card.poses.right] : []))),
+        ...LAST_TAP_SPINNER_SOURCES,
         require('./assets/packed/meme-master-blue/background.jpg'),
         TOTAL_CHAOS_LOGO,
         require('./assets/packed/meme-master-blue/intro-title.webp'),
@@ -1083,6 +1150,13 @@ function SpinnerScreen({
       return;
     }
 
+    const cards = getSpinnerArt().cards;
+    const playable = cards.flatMap((card, cardIndex) => (card.game ? [cardIndex] : []));
+    const forcedIndex = forcedLanding === 'random' ? -1 : cards.findIndex((card) => card.game === forcedLanding);
+    const index = forcedIndex >= 0 ? forcedIndex : playable[Math.floor(Math.random() * playable.length)];
+    const game = cards[index]?.game ?? 'memeMaster';
+    landedGame.current = game;
+    setLandIndex(index);
     cancelled.current = false;
     playSound('spinner');
     landingGlow.setValue(0);
@@ -1091,12 +1165,12 @@ function SpinnerScreen({
     setSpinning(true);
 
     // One run with constant deceleration, like a wheel under friction: a fast
-    // blur at first, then every card takes longer than the last until Meme
-    // Master settles in the centre. No per-step restarts, so nothing snaps.
+    // blur at first, then every card takes longer than the last until the
+    // chosen game settles in the centre. No per-step restarts, so nothing snaps.
     Animated.timing(position, {
       duration: SPIN_DURATION,
       easing: Easing.out(Easing.quad),
-      toValue: SPIN_SLOTS,
+      toValue: SPIN_SLOTS + index,
       useNativeDriver: SPINNER_NATIVE_DRIVER,
     }).start(({ finished }) => {
       if (!finished || cancelled.current) {
@@ -1104,7 +1178,8 @@ function SpinnerScreen({
       }
 
       haptic('success');
-      playNarration('memeMasterSpinner');
+      if (landedGame.current === 'memeMaster') playNarration('memeMasterSpinner');
+      if (landedGame.current === 'lastTapStanding') playNarration('lastTapSpinner');
       Animated.parallel([
         Animated.sequence([
           Animated.spring(landingScale, {
@@ -1140,7 +1215,7 @@ function SpinnerScreen({
         if (cancelled.current) {
           return;
         }
-        onLanded?.();
+        onLanded?.(landedGame.current);
       });
     });
   };
@@ -1153,8 +1228,13 @@ function SpinnerScreen({
     inputRange: [0, 1],
     outputRange: [0.96, 1.08],
   });
-  const zIndexFor = (index: number) =>
-    index === frontIndex ? 3 : index === (frontIndex + 1) % SPINNER_CARD_COUNT ? 2 : 1;
+  const zIndexFor = (index: number) => {
+    const distance = Math.min(
+      (index - frontIndex + SPINNER_CARD_COUNT) % SPINNER_CARD_COUNT,
+      (frontIndex - index + SPINNER_CARD_COUNT) % SPINNER_CARD_COUNT,
+    );
+    return SPINNER_CARD_COUNT - distance;
+  };
 
   return (
     <View testID="game-spinner" style={[styles.fill, styles.layeredScreen]}>
@@ -1183,16 +1263,17 @@ function SpinnerScreen({
           ]}
         />
 
-        {getSpinnerArt().posters.map((source, index) => (
+        {getSpinnerArt().cards.map((card, index) => (
           <SpinnerCard
+            artwork={card.artwork}
             index={index}
-            key={index}
-            landing={index === SPIN_SLOTS % SPINNER_CARD_COUNT}
+            key={card.id}
+            landing={index === landIndex}
             landingScale={landingScale}
             position={position}
-            poses={getSpinnerArt().poses[index]}
+            poses={card.poses}
             scale={scale}
-            source={source}
+            source={card.source}
             zIndex={zIndexFor(index)}
           />
         ))}
@@ -1207,6 +1288,31 @@ function SpinnerScreen({
           scale={scale}
           source={getSpinnerArt().button}
         />
+        <View pointerEvents={spinning ? 'none' : 'auto'} style={[layoutBox({ x: 70, y: POSTER_TOP + 780 + SPINNER_GAP + 210, width: 713, height: 150 }, scale), { opacity: spinning ? 0.4 : 1 }]}>
+          <Text style={[styles.spinnerTestLabel, { fontSize: 26 * scale, marginBottom: 10 * scale }]}>TEST LANDING</Text>
+          <View style={{ flexDirection: 'row', gap: 12 * scale }}>
+            {([
+              ['random', 'RANDOM'],
+              ['memeMaster', 'MEME MASTER'],
+              ['lastTapStanding', 'LAST TAP'],
+            ] as const).map(([id, label]) => {
+              const selected = forcedLanding === id;
+              return (
+                <Pressable
+                  accessibilityLabel={`Land on ${label}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected, disabled: spinning }}
+                  disabled={spinning}
+                  key={id}
+                  onPress={() => { haptic('selection'); setForcedLanding(id); }}
+                  style={[styles.spinnerTestChoice, { borderRadius: 18 * scale, borderWidth: 3 * scale, flex: 1, paddingVertical: 14 * scale }, selected ? styles.spinnerTestChoiceOn : null]}
+                >
+                  <Text style={[styles.spinnerTestChoiceText, { fontSize: 24 * scale }, selected ? styles.spinnerTestChoiceTextOn : null]}>{label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -1367,6 +1473,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [soundOn, setSoundOn] = useState(true);
   const [teleporting,setTeleporting]=useState(false);
+  const [teleportTarget, setTeleportTarget] = useState<SpinnerGame>('memeMaster');
   const [revealing,setRevealing]=useState(false);
   // Set by the spinner once its landing pop has finished, during the still hold
   // before the warp. Native uses it to mount Meme Master while nothing moves.
@@ -1374,6 +1481,7 @@ export default function App() {
   const [isHost, setIsHost] = useState(true);
   const [playerIdentity, setPlayerIdentity] = useState<{ name: string; id: MonsterId }>({ name: 'MATTHIAS', id: 'grumble' });
   const fade = useRef(new Animated.Value(1)).current;
+  const navToken = useRef(0);
   const soundOnRef = useRef(soundOn);
   const screenRef = useRef(screen);
   const teleportingRef = useRef(false);
@@ -1408,7 +1516,12 @@ export default function App() {
       preloadSound('spinnerStop');
       preloadSound('gameSpinnerIntro');
       preloadSound('memeMasterSpinner');
+      preloadSound('lastTapSpinner');
+      preloadSound('lastTapWelcome');
+      preloadSound('lastTapRules');
       preloadSound('memeMaster');
+      preloadSound('lastTapStanding');
+      preloadSound('teleport');
       preloadSound('memeMasterWelcome');
       preloadSound('memeMasterRulesPart1');
       preloadSound('memeMasterRulesPart2');
@@ -1427,6 +1540,7 @@ export default function App() {
       preloadSound('winner');
       void preloadUpcomingImages();
       void import('./MemeMasterGame');
+      void import('./last-tap-standing-integration/LastTapStandingScreen');
     });
     return () => {
       if (idleHandles.timeout) clearTimeout(idleHandles.timeout);
@@ -1436,10 +1550,13 @@ export default function App() {
 
   // The soundtrack belongs to the app shell, not a mini-game. Keep one audio
   // element alive while screens change so playback does not restart on every
-  // navigation; pause it whenever Meme Master takes over.
+  // navigation; each mini-game fades in its own loop instead.
   useEffect(() => {
-    const wanted = soundOn && screen !== 'memeMaster';
-    setMemeMasterMusicWanted(soundOn && screen === 'memeMaster');
+    const inMemeMaster = screen === 'memeMaster';
+    const inLastTap = screen === 'lastTapStanding';
+    const wanted = soundOn && !inMemeMaster && !inLastTap;
+    setMemeMasterMusicWanted(soundOn && inMemeMaster);
+    setLastTapMusicWanted(soundOn && inLastTap);
     setSoundtrackWanted(wanted);
     if (!wanted) return;
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -1461,6 +1578,7 @@ export default function App() {
           return;
         }
         if (soundOnRef.current && screenRef.current === 'memeMaster') playMemeMasterMusic();
+        else if (soundOnRef.current && screenRef.current === 'lastTapStanding') playLastTapMusic();
         else if (soundOnRef.current) playSoundtrack();
       };
       document.addEventListener('visibilitychange', onVisibilityChange);
@@ -1478,6 +1596,7 @@ export default function App() {
         return;
       }
       if (soundOnRef.current && screenRef.current === 'memeMaster') playMemeMasterMusic();
+      else if (soundOnRef.current && screenRef.current === 'lastTapStanding') playLastTapMusic();
       else if (soundOnRef.current) playSoundtrack();
     });
     return () => sub.remove();
@@ -1486,8 +1605,9 @@ export default function App() {
   const toggleSound = () => {
     setSoundOn((current) => {
       const next = !current;
-      setSoundtrackWanted(next && screen !== 'memeMaster');
+      setSoundtrackWanted(next && screen !== 'memeMaster' && screen !== 'lastTapStanding');
       setMemeMasterMusicWanted(next && screen === 'memeMaster');
+      setLastTapMusicWanted(next && screen === 'lastTapStanding');
       if (!next) stopAllSounds();
       return next;
     });
@@ -1498,7 +1618,7 @@ export default function App() {
       return;
     }
 
-    const themeColor = screen === 'memeMaster' ? '#020444' : '#12001f';
+    const themeColor = screen === 'memeMaster' ? '#020444' : screen === 'lastTapStanding' ? '#250008' : '#12001f';
     document.documentElement.style.backgroundColor = themeColor;
     document.documentElement.style.colorScheme = 'dark';
     document.body.style.backgroundColor = themeColor;
@@ -1549,20 +1669,37 @@ export default function App() {
   }, [screen]);
 
   const go = (next: Screen) => {
-    if(teleportingRef.current)return;
-    if(next==='memeMaster'){setTeleporting(true);return;}
+    if (teleportingRef.current) return;
+    if (next === 'memeMaster' || next === 'lastTapStanding') {
+      setTeleportTarget(next);
+      setTeleporting(true);
+      return;
+    }
+    if (next === screenRef.current) return;
+    // Swap while the frame is fully transparent. A native-driver opacity node
+    // resets to 1 for a frame when its children change, which on iPhone flashes
+    // the previous screen before the new one.
+    const token = ++navToken.current;
     setStaging(false);
+    fade.stopAnimation();
     Animated.timing(fade, {
       duration: 90,
       toValue: 0,
-      useNativeDriver: true,
-    }).start(() => {
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (!finished || token !== navToken.current) return;
+      fade.setValue(0);
       setScreen(next);
-      Animated.timing(fade, {
-        duration: 170,
-        toValue: 1,
-        useNativeDriver: true,
-      }).start();
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (token !== navToken.current) return;
+          Animated.timing(fade, {
+            duration: 160,
+            toValue: 1,
+            useNativeDriver: false,
+          }).start();
+        });
+      });
     });
   };
 
@@ -1572,7 +1709,7 @@ export default function App() {
   // the blackout. Web mounts instantly and its game root is fixed-position, so
   // it keeps the plain swap.
   const premountMeme =
-    Platform.OS !== 'web' && ((staging && screen === 'spinner') || teleporting) && screen !== 'memeMaster';
+    Platform.OS !== 'web' && teleportTarget === 'memeMaster' && ((staging && screen === 'spinner') || teleporting) && screen !== 'memeMaster';
   const showMeme = screen === 'memeMaster' || premountMeme;
   const currentScreen =
     screen === 'home' ? (
@@ -1588,18 +1725,35 @@ export default function App() {
     ) : screen === 'spinner' ? (
       <SpinnerScreen
         go={go}
-        onLanded={() => {
+        onLanded={(game) => {
           // App owns the warp timer. Staging used to remount this screen on
           // native (new parent wrapper), which cancelled a local timeout and
           // left iOS stuck on the spinner.
           playSound('teleport');
           haptic('heavy');
-          setStaging(true);
           if (warpTimer.current) clearTimeout(warpTimer.current);
-          warpTimer.current = setTimeout(() => go('memeMaster'), SPINNER_LANDING_HOLD);
+          if (game === 'memeMaster') {
+            setStaging(true);
+            warpTimer.current = setTimeout(() => go('memeMaster'), SPINNER_LANDING_HOLD);
+            return;
+          }
+          warpTimer.current = setTimeout(() => go('lastTapStanding'), SPINNER_LANDING_HOLD);
         }}
         scale={containScale}
       />
+    ) : screen === 'lastTapStanding' ? (
+      <Suspense fallback={<View style={[styles.fill, { backgroundColor: '#250008' }]} />}>
+        <View style={styles.fill}>
+          <LastTapStandingScreen
+            entrancePaused={teleporting && !revealing}
+            onExit={() => go(isHost ? 'hostLobby' : 'playerLobby')}
+            onFinish={() => go('progress')}
+            playerId={playerIdentity.id}
+            playerName={playerIdentity.name}
+            soundOn={soundOn}
+          />
+        </View>
+      </Suspense>
     ) : screen === 'memeMaster' ? null : (
       <FlowArtworkScreen go={go} scale={containScale} screen={screen} />
     );
@@ -1608,6 +1762,7 @@ export default function App() {
     <View style={styles.viewport}>
       <Animated.View
         accessibilityLabel={`${screen} screen`}
+        collapsable={false}
         style={[
           styles.frame,
           {
@@ -1635,7 +1790,7 @@ export default function App() {
         )}
       </Animated.View>
       <StatusBar hidden />
-      {teleporting&&<MemeTeleport width={viewportWidth} height={viewportHeight} revealReady={screen==='memeMaster'} onCovered={()=>{setScreen('memeMaster');fade.setValue(1);}} onReveal={()=>{setRevealing(true);if(soundOnRef.current)playNarration('memeMasterWelcome');}} onDone={()=>{setTeleporting(false);setRevealing(false);setStaging(false);}}/>}
+      {teleporting&&<MemeTeleport game={teleportTarget} card={teleportTarget==='lastTapStanding'?<LastTapSpinnerArtwork scale={(viewportWidth*.38)/390}/>:undefined} width={viewportWidth} height={viewportHeight} revealReady={screen===teleportTarget} onCovered={()=>{setScreen(teleportTarget);fade.setValue(1);}} onReveal={()=>{setRevealing(true);if(soundOnRef.current&&teleportTarget==='memeMaster')playNarration('memeMasterWelcome');}} onDone={()=>{setTeleporting(false);setRevealing(false);setStaging(false);}}/>}
     </View>
   );
 }
@@ -1771,6 +1926,29 @@ const styles = StyleSheet.create({
   spinnerPoster: {
     overflow: 'visible',
     position: 'absolute',
+  },
+  spinnerTestChoice: {
+    alignItems: 'center',
+    backgroundColor: '#1a0528',
+    borderColor: '#6d3d86',
+    justifyContent: 'center',
+  },
+  spinnerTestChoiceOn: {
+    backgroundColor: '#3a0d55',
+    borderColor: '#ff79d2',
+  },
+  spinnerTestChoiceText: {
+    color: '#f6e9ff',
+    fontFamily: DISPLAY_FONT,
+    textAlign: 'center',
+  },
+  spinnerTestChoiceTextOn: {
+    color: '#ffd6f2',
+  },
+  spinnerTestLabel: {
+    color: '#ffb7e6',
+    fontFamily: DISPLAY_FONT,
+    textAlign: 'center',
   },
   spinnerPosterShadow: {
     shadowColor: '#07000f',

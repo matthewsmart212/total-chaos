@@ -61,7 +61,13 @@ const TELEPORT_MS = 1500;
  * `onReveal` fires as the dissolve starts so the destination's entrance
  * animations play under the lifting cover rather than after it.
  */
-export function MemeTeleport({width,height,revealReady,onCovered,onReveal,onDone}:{width:number;height:number;revealReady:boolean;onCovered:()=>void;onReveal?:()=>void;onDone:()=>void}) {
+type WarpGame = 'memeMaster' | 'lastTapStanding';
+const WARP: Record<WarpGame, { disc: string; label: string; ring: readonly [string, string]; testID: string; wash: string }> = {
+  memeMaster: { disc: '#020444', label: 'Entering Meme Master', ring: ['#37f5ff', '#a34bff'], testID: 'meme-teleport', wash: '#070334' },
+  lastTapStanding: { disc: '#250008', label: 'Entering Last Tap Standing', ring: ['#ff8296', '#b80032'], testID: 'last-tap-teleport', wash: '#1a0008' },
+};
+
+export function MemeTeleport({width,height,revealReady,onCovered,onReveal,onDone,game='memeMaster',card}:{width:number;height:number;revealReady:boolean;onCovered:()=>void;onReveal?:()=>void;onDone:()=>void;game?:WarpGame;card?:ReactNode}) {
   const clock=useRef(new Animated.Value(0)).current;
   const covered=useRef(false);
   const revealing=useRef(false);
@@ -111,19 +117,20 @@ export function MemeTeleport({width,height,revealReady,onCovered,onReveal,onDone
         height:ringSize,
         borderRadius:ringSize/2,
         borderWidth:4+i*3,
-        borderColor:i?'#a34bff':'#37f5ff',
+        borderColor:WARP[game].ring[i] ?? WARP[game].ring[0],
         opacity:v([i*110,260+i*110,700,COVER_AT],[0,.9,.45,0]),
         transform:[{scale:v([0,320,640,COVER_AT],[.18,.9+i*.35,2.6+i*.6,4.2+i*.8])}],
       }}
     />
   );
-  const content=<View testID="meme-teleport" accessibilityLabel="Entering Meme Master" pointerEvents="none" style={[StyleSheet.absoluteFill,{zIndex:20000,overflow:'hidden',alignItems:'center',justifyContent:'center',...(Platform.OS==='web'?{position:'fixed'} as any:{})}]}>
-    <Animated.View style={[StyleSheet.absoluteFill,{backgroundColor:'#070334',opacity:v([0,320,COVER_AT,1380],[0,.6,.6,0])}]}/>
+  const theme = WARP[game];
+  const content=<View testID={theme.testID} accessibilityLabel={theme.label} pointerEvents="none" style={[StyleSheet.absoluteFill,{zIndex:20000,overflow:'hidden',alignItems:'center',justifyContent:'center',...(Platform.OS==='web'?{position:'fixed'} as any:{})}]}>
+    <Animated.View style={[StyleSheet.absoluteFill,{backgroundColor:theme.wash,opacity:v([0,320,COVER_AT,1380],[0,.6,.6,0])}]}/>
     {[0,1].map(ring)}
     <Animated.View style={{width:width*.38,height:width*.74,opacity:v([0,120,560,820],[0,1,1,0]),transform:[{translateY:v([0,COVER_AT],[0,-height*.06])},{scale:v([0,200,520,COVER_AT],[1,1.04,1.28,2.9])},{rotate:v([0,COVER_AT],['0deg','-6deg'])}]}}>
-      <Image source={require('../assets/packed/spinner/poses/meme-master-flat.webp')} resizeMode="contain" style={{position:'absolute',left:'-14%',top:'-7%',width:'128%',height:'114%'}}/>
+      {card ?? <Image source={require('../assets/packed/spinner/poses/meme-master-flat.webp')} resizeMode="contain" style={{position:'absolute',left:'-14%',top:'-7%',width:'128%',height:'114%'}}/>}
     </Animated.View>
-    <Animated.View style={{...shape,width:diameter,height:diameter,borderRadius:diameter/2,backgroundColor:'#020444',borderWidth:10,borderColor:'#37f5ff',opacity:v([0,540,600,1000,1150,1300,1450],[0,0,1,1,.55,.2,0]),transform:[{scale:v([0,540,640,740,820,COVER_AT,TELEPORT_MS],[.02,.02,.12,.38,.72,1,1.05])}]}}/>
+    <Animated.View style={{...shape,width:diameter,height:diameter,borderRadius:diameter/2,backgroundColor:theme.disc,borderWidth:10,borderColor:theme.ring[0],opacity:v([0,540,600,1000,1150,1300,1450],[0,0,1,1,.55,.2,0]),transform:[{scale:v([0,540,640,740,820,COVER_AT,TELEPORT_MS],[.02,.02,.12,.38,.72,1,1.05])}]}}/>
   </View>;
   return Platform.OS==='web'&&typeof document!=='undefined'?require('react-dom').createPortal(content,document.body):content;
 }

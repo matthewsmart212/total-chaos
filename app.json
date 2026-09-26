@@ -30,7 +30,8 @@
       "themeColor": "#12001F"
     },
     "plugins": [
-      "expo-audio"
+      "expo-audio",
+      "expo-font"
     ]
   }
 }

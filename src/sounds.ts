@@ -6,9 +6,13 @@ type SoundName =
   | 'spinnerStop'
   | 'gameSpinnerIntro'
   | 'memeMasterSpinner'
+  | 'lastTapSpinner'
   | 'teleport'
   | 'memeMaster'
+  | 'lastTapStanding'
   | 'memeMasterWelcome'
+  | 'lastTapWelcome'
+  | 'lastTapRules'
   | 'memeMasterRulesPart1'
   | 'memeMasterRulesPart2'
   | 'memeMasterCaptionTease'
@@ -27,7 +31,10 @@ type SoundName =
 type NarrationName =
   | 'gameSpinnerIntro'
   | 'memeMasterSpinner'
+  | 'lastTapSpinner'
   | 'memeMasterWelcome'
+  | 'lastTapWelcome'
+  | 'lastTapRules'
   | 'memeMasterRulesPart1'
   | 'memeMasterRulesPart2'
   | 'memeMasterCaptionTease'
@@ -50,8 +57,12 @@ function source(name: SoundName) {
   if (name === 'spinnerStop') return require('../assets/audio/spinner-stop.mp3');
   if (name === 'gameSpinnerIntro') return require('../assets/audio/game-spinner-intro.mp3');
   if (name === 'memeMasterSpinner') return require('../assets/audio/meme-master-spinner.mp3');
+  if (name === 'lastTapSpinner') return require('../assets/audio/last-tap-standing-audio/spinner-intro.mp3');
   if (name === 'memeMaster') return require('../assets/audio/meme-master.mp3');
+  if (name === 'lastTapStanding') return require('../assets/audio/last-tap-standing-audio/main-background-song.mp3');
   if (name === 'memeMasterWelcome') return require('../assets/audio/meme-master-welcome.mp3');
+  if (name === 'lastTapWelcome') return require('../assets/audio/last-tap-standing-audio/welcome-intro.mp3');
+  if (name === 'lastTapRules') return require('../assets/audio/last-tap-standing-audio/rules.mp3');
   if (name === 'memeMasterRulesPart1') return require('../assets/audio/meme-master-rules-part-1.mp3');
   if (name === 'memeMasterRulesPart2') return require('../assets/audio/meme-master-rules-part-2.mp3');
   if (name === 'memeMasterCaptionTease') return require('../assets/audio/meme-master-caption-tease.mp3');
@@ -77,7 +88,8 @@ function soundtrackSource() {
 const webPlayers: Partial<Record<SoundName, HTMLAudioElement>> = {};
 const nativePlayers: Partial<Record<SoundName, NativePlayer>> = {};
 const narrationNames: NarrationName[] = [
-  'gameSpinnerIntro', 'memeMasterSpinner', 'memeMasterWelcome',
+  'gameSpinnerIntro', 'memeMasterSpinner', 'lastTapSpinner', 'memeMasterWelcome',
+  'lastTapWelcome', 'lastTapRules',
   'memeMasterRulesPart1', 'memeMasterRulesPart2', 'memeMasterCaptionTease',
   'memeMasterVoting', 'memeMasterFirstPlace', 'memeMasterSecondPlace',
   'memeMasterThirdPlace',
@@ -85,10 +97,21 @@ const narrationNames: NarrationName[] = [
 let webSoundtrack: HTMLAudioElement | null = null;
 let nativeSoundtrack: NativePlayer | null = null;
 let nativeModeReady = false;
-let memeMasterWanted = false;
-let memeMasterFade: ReturnType<typeof setInterval> | null = null;
-let memeMasterStart: ReturnType<typeof setTimeout> | null = null;
+type MiniGameTrack = 'memeMaster' | 'lastTapStanding';
+type MiniGamePlayback = {
+  fade: ReturnType<typeof setInterval> | null;
+  start: ReturnType<typeof setTimeout> | null;
+  wanted: boolean;
+};
+const miniGame: Record<MiniGameTrack, MiniGamePlayback> = {
+  memeMaster: { fade: null, start: null, wanted: false },
+  lastTapStanding: { fade: null, start: null, wanted: false },
+};
 let rulesVoiceoverWanted = false;
+
+function isMiniGameTrack(name: SoundName): name is MiniGameTrack {
+  return name === 'memeMaster' || name === 'lastTapStanding';
+}
 
 function isWeb() {
   return Platform.OS === 'web' && typeof Audio !== 'undefined';
@@ -99,7 +122,7 @@ function getWebPlayer(name: SoundName) {
   if (!player) {
     player = new Audio(source(name) as string);
     player.preload = 'auto';
-    player.loop = name === 'memeMaster';
+    player.loop = isMiniGameTrack(name);
     if (name === 'spinner') {
       player.addEventListener('ended', () => playSound('spinnerStop'));
     }
@@ -137,7 +160,7 @@ function getNativePlayer(name: SoundName) {
   let player = nativePlayers[name];
   if (!player) {
     player = expoAudio().createAudioPlayer(source(name));
-    player.loop = name === 'memeMaster';
+    player.loop = isMiniGameTrack(name);
     player.volume = name === 'click' ? 0.8 : 1;
     if (name === 'spinner') {
       player.addListener('playbackStatusUpdate', (status) => {
@@ -183,13 +206,12 @@ export function playSound(name: SoundName) {
 }
 
 export function stopSound(name: SoundName) {
-  if (name === 'memeMaster' && memeMasterFade) {
-    clearInterval(memeMasterFade);
-    memeMasterFade = null;
-  }
-  if (name === 'memeMaster' && memeMasterStart) {
-    clearTimeout(memeMasterStart);
-    memeMasterStart = null;
+  if (isMiniGameTrack(name)) {
+    const playback = miniGame[name];
+    if (playback.fade) clearInterval(playback.fade);
+    if (playback.start) clearTimeout(playback.start);
+    playback.fade = null;
+    playback.start = null;
   }
   if (Platform.OS === 'web' && typeof Audio === 'undefined') return;
   if (isWeb()) {
@@ -209,7 +231,8 @@ export function stopAllSounds() {
   stopAllNarration();
   ([
     'click', 'spinner', 'spinnerStop', 'gameSpinnerIntro', 'memeMasterSpinner',
-    'teleport', 'memeMaster', 'memeMasterWelcome',
+    'lastTapSpinner', 'teleport', 'memeMaster', 'lastTapStanding', 'memeMasterWelcome',
+    'lastTapWelcome', 'lastTapRules',
     'memeMasterRulesPart1', 'memeMasterRulesPart2', 'memeMasterCaptionTease',
     'memeMasterVoting', 'memeMasterFirstPlace', 'memeMasterSecondPlace',
     'memeMasterThirdPlace', 'lockedIn',
@@ -246,78 +269,105 @@ export function stopMemeMasterRulesVoiceover() {
   stopSound('memeMasterRulesPart2');
 }
 
-function fadeMemeMaster(player: { volume: number }) {
-  if (memeMasterFade) clearInterval(memeMasterFade);
+function fadeMiniGameIn(track: MiniGameTrack, player: { volume: number }) {
+  const playback = miniGame[track];
+  if (playback.fade) clearInterval(playback.fade);
   const startedAt = Date.now();
   player.volume = 0;
-  memeMasterFade = setInterval(() => {
-    if (!memeMasterWanted) {
-      if (memeMasterFade) clearInterval(memeMasterFade);
-      memeMasterFade = null;
+  playback.fade = setInterval(() => {
+    if (!playback.wanted) {
+      if (playback.fade) clearInterval(playback.fade);
+      playback.fade = null;
       return;
     }
     player.volume = Math.min(1, (Date.now() - startedAt) / 3000);
     if (player.volume >= 1) {
-      if (memeMasterFade) clearInterval(memeMasterFade);
-      memeMasterFade = null;
+      if (playback.fade) clearInterval(playback.fade);
+      playback.fade = null;
     }
   }, 40);
 }
 
-export function fadeMemeMasterMusicTo(targetVolume: number, durationMs: number, fromVolume?: number) {
-  if (!memeMasterWanted) return;
-  const player = isWeb() ? webPlayers.memeMaster : nativePlayers.memeMaster;
+function fadeMiniGameMusicTo(track: MiniGameTrack, targetVolume: number, durationMs: number, fromVolume?: number) {
+  const playback = miniGame[track];
+  if (!playback.wanted) return;
+  const player = isWeb() ? webPlayers[track] : nativePlayers[track];
   if (!player) return;
-  if (memeMasterFade) clearInterval(memeMasterFade);
+  if (playback.fade) clearInterval(playback.fade);
   const from = fromVolume===undefined?player.volume:Math.max(0,Math.min(1,fromVolume));
   player.volume=from;
   const target = Math.max(0, Math.min(1, targetVolume));
   const startedAt = Date.now();
-  memeMasterFade = setInterval(() => {
-    if (!memeMasterWanted) {
-      if (memeMasterFade) clearInterval(memeMasterFade);
-      memeMasterFade = null;
+  playback.fade = setInterval(() => {
+    if (!playback.wanted) {
+      if (playback.fade) clearInterval(playback.fade);
+      playback.fade = null;
       return;
     }
     const progress = Math.min(1, (Date.now() - startedAt) / Math.max(1, durationMs));
     player.volume = from + (target - from) * progress;
     if (progress >= 1) {
-      if (memeMasterFade) clearInterval(memeMasterFade);
-      memeMasterFade = null;
+      if (playback.fade) clearInterval(playback.fade);
+      playback.fade = null;
     }
   }, 40);
 }
 
-export function playMemeMasterMusic() {
-  if (!memeMasterWanted) return;
+export function fadeMemeMasterMusicTo(targetVolume: number, durationMs: number, fromVolume?: number) {
+  fadeMiniGameMusicTo('memeMaster', targetVolume, durationMs, fromVolume);
+}
+
+export function fadeLastTapMusicTo(targetVolume: number, durationMs: number, fromVolume?: number) {
+  fadeMiniGameMusicTo('lastTapStanding', targetVolume, durationMs, fromVolume);
+}
+
+function playMiniGameMusic(track: MiniGameTrack) {
+  const playback = miniGame[track];
+  if (!playback.wanted) return;
   if (Platform.OS === 'web' && typeof Audio === 'undefined') return;
-  if (memeMasterStart) clearTimeout(memeMasterStart);
-  memeMasterStart = setTimeout(() => {
-    memeMasterStart = null;
-    if (!memeMasterWanted) return;
+  if (playback.start) clearTimeout(playback.start);
+  playback.start = setTimeout(() => {
+    playback.start = null;
+    if (!playback.wanted) return;
     if (isWeb()) {
-      const player = getWebPlayer('memeMaster');
+      const player = getWebPlayer(track);
       player.currentTime = 0;
-      fadeMemeMaster(player);
+      fadeMiniGameIn(track, player);
       void player.play().catch(() => undefined);
       return;
     }
     void ensureNativeMode().then(() => {
-      if (!memeMasterWanted) return;
-      const player = getNativePlayer('memeMaster');
+      if (!playback.wanted) return;
+      const player = getNativePlayer(track);
       void Promise.resolve(player.seekTo(0)).finally(() => {
-        if (!memeMasterWanted) return;
-        fadeMemeMaster(player);
+        if (!playback.wanted) return;
+        fadeMiniGameIn(track, player);
         player.play();
       });
     });
   }, 700);
 }
 
+function setMiniGameMusicWanted(track: MiniGameTrack, wanted: boolean) {
+  miniGame[track].wanted = wanted;
+  if (wanted) playMiniGameMusic(track);
+  else stopSound(track);
+}
+
+export function playMemeMasterMusic() {
+  playMiniGameMusic('memeMaster');
+}
+
 export function setMemeMasterMusicWanted(wanted: boolean) {
-  memeMasterWanted = wanted;
-  if (wanted) playMemeMasterMusic();
-  else stopSound('memeMaster');
+  setMiniGameMusicWanted('memeMaster', wanted);
+}
+
+export function playLastTapMusic() {
+  playMiniGameMusic('lastTapStanding');
+}
+
+export function setLastTapMusicWanted(wanted: boolean) {
+  setMiniGameMusicWanted('lastTapStanding', wanted);
 }
 
 let soundtrackWanted = false;

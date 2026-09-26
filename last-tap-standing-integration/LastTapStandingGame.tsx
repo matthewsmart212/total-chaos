@@ -14,17 +14,17 @@ import { eliminationQuip, REVEAL_BEATS, tapRevealTiming, FINALE_BEATS } from './
 
 type Prediction = { pick: MonsterId | null; points: number };
 
-// Artwork is assembled in layers. Every card, name, time, countdown, X and
-// action is live React Native UI; no whole-screen mockup is used at runtime.
+// Gameplay cards, names, timers, countdowns and actions stay live UI. The
+// welcome uses shared key art so its spinner poster is visually identical.
 export const LAST_TAP_ART = {
   logo: require('./assets/last-tap/beat-panic-logo.webp'),
+  keyArt: require('./assets/last-tap/beat-panic-key-art.webp'),
   beat: require('./assets/last-tap/beat-panic-background.png'),
   background: require('./assets/last-tap/background-clean.webp'),
   stage: require('./assets/last-tap/elimination-stage.webp'),
   crown: require('./assets/last-tap/finale-crown.webp'),
   finaleArena: require('./assets/last-tap/finale-arena.webp'),
   finaleBurst: require('./assets/last-tap/finale-burst.webp'),
-  welcome: require('./assets/last-tap/beat-panic-hero.webp'),
   eliminated: require('./assets/last-tap/eliminated-scene.webp'),
 };
 const avatars: Record<MonsterId, ImageSourcePropType> = {
@@ -571,16 +571,13 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
   const finalists = active.slice(0, 2);
 
   return <View nativeID="beat-panic" testID={`beat-panic-${phase}`} style={{ width: viewportWidth, height: viewportHeight, backgroundColor: '#250008', alignItems: 'center', justifyContent: 'center' }}>
-    <Image source={['target','playing','locked','results'].includes(phase)?LAST_TAP_ART.beat:LAST_TAP_ART.background} resizeMode="cover" style={FILL} />
+    <Image accessibilityLabel={phase === 'welcome' ? 'Beat Panic' : undefined} source={phase === 'welcome' ? LAST_TAP_ART.keyArt : ['target','playing','locked','results'].includes(phase) ? LAST_TAP_ART.beat : LAST_TAP_ART.background} resizeMode="cover" style={FILL} />
     <Layout.Provider value={metrics}>
       <View style={{ width, height, position: 'relative' }}>
         <ScreenMotion.Provider value={{clock:entry, enabled:!reducedMotion && phase !== 'playing'}}>
         <Animated.View pointerEvents={pageReady ? 'box-none' : 'none'} style={[StyleSheet.absoluteFill,{opacity:departure,transform:[{translateY:departure.interpolate({inputRange:[0,1],outputRange:[-6*metrics.unit,0]})}]}]}>
           {phase === 'welcome' ? <>
-            <Logo large />
-            <Box x={34} y={286} w={322} h={31} decorative><Copy size={20} color="#fff3da" style={{ transform: [{ rotate: '-2deg' }], textShadowColor:'#560017',textShadowOffset:{width:0,height:2},textShadowRadius:2 }}>FOUR DIRECTIONS. ONE SURVIVOR.</Copy></Box>
-            <Art source={LAST_TAP_ART.welcome} x={35} y={313} w={320} h={246} />
-            <Button x={27} y={620} w={336} h={66} label="HOW TO PLAY" onPress={() => goPhase('rules')} />
+            <Button x={27} y={742} w={336} h={66} label="HOW TO PLAY" onPress={() => goPhase('rules')} />
 
           </> : phase === 'rules' ? <>
             <Logo /><Heading x={12} y={135} w={366} h={62} size={42}>HOW TO PLAY</Heading>

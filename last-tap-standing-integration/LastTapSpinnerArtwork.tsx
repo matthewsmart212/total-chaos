@@ -1,12 +1,10 @@
 import React from 'react';
 import { Platform, StyleSheet, View, ViewStyle } from 'react-native';
-import Svg, { ClipPath, Defs, FeDropShadow, Filter, G, Image as SvgImage, Polygon, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { ClipPath, Defs, FeDropShadow, Filter, G, Image as SvgImage, Polygon } from 'react-native-svg';
 
-const background = require('./assets/last-tap/background-clean.webp');
-const logo = require('./assets/last-tap/beat-panic-logo.webp');
-const hero = require('./assets/last-tap/beat-panic-hero.webp');
+const keyArt = require('./assets/last-tap/beat-panic-key-art.webp');
 
-export const LAST_TAP_SPINNER_SOURCES = [background, logo, hero];
+export const LAST_TAP_SPINNER_SOURCES = [keyArt];
 
 // Same die-cut as scripts/make-spinner-cards.mjs, in the 390x780 poster space.
 const CARD_WIDTH = 390;
@@ -75,27 +73,12 @@ export default function LastTapSpinnerArtwork({ scale }: Props) {
           <G clipPath="url(#lastTapPosterSilhouette)">
             <SvgImage
               height={CARD_HEIGHT}
-              href={background}
+              href={keyArt}
               preserveAspectRatio="xMidYMid slice"
               width={CARD_WIDTH}
               x="0"
               y="0"
             />
-            <SvgImage
-              height="270"
-              href={logo}
-              preserveAspectRatio="xMidYMid meet"
-              width="360"
-              x="15"
-              y="18"
-            />
-            <Rect x="61" y="267" width="268" height="35" rx="18" fill="#26000be8" stroke="#ff4774" strokeWidth="2" />
-            <SvgText x="195" y="291" textAnchor="middle" fill="#ffb7ce" fontSize="13" fontWeight="800" letterSpacing="1.5">MISS THE BEAT. MEET DEFEAT.</SvgText>
-            <Rect x="82" y="311" width="226" height="32" rx="16" fill="#4b0012d9" stroke="#ffe34c" strokeWidth="1.5" />
-            <SvgText x="195" y="333" textAnchor="middle" fill="#ffe34c" fontSize="14" fontWeight="900" letterSpacing="1">RHYTHM KNOCKOUT</SvgText>
-            <SvgImage height="375" href={hero} preserveAspectRatio="xMidYMid meet" width="376" x="7" y="344" />
-            <Rect x="43" y="710" width="304" height="38" rx="19" fill="#26000be8" stroke="#ff4774" strokeWidth="2" />
-            <SvgText x="195" y="736" textAnchor="middle" fill="#fff3da" fontSize="14" fontWeight="900" letterSpacing=".6">FOUR DIRECTIONS · ONE SURVIVOR</SvgText>
             <Polygon fill="none" points={SILHOUETTE} stroke="#30000d" strokeLinejoin="round" strokeWidth={BORDER.burgundy} />
             <Polygon fill="none" points={SILHOUETTE} stroke="#ff8296" strokeLinejoin="round" strokeWidth={BORDER.pink} />
             <Polygon fill="none" points={SILHOUETTE} stroke="#b80032" strokeLinejoin="round" strokeWidth={BORDER.crimson} />

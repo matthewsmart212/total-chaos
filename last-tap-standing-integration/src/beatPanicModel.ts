@@ -68,15 +68,25 @@ export function beatChartForRound(round: number, finalRound = false): BeatChart 
 
     notes.push({id:`r${round}-${index}`, at, lane, kind, duration:kind === 'hold' ? holdDuration : 0});
 
-    // Later rounds occasionally ask for two directions at the same moment.
-    if (level >= 4 && index % 13 === 9) {
+    // Later rounds occasionally ask for two directions at the same moment, but
+    // never alongside a hold: mobile web views do not reliably combine a held
+    // pointer with a second control press.
+    if (kind !== 'hold' && level >= 4 && index % 13 === 9) {
       const partner = ((lane + 2) % 4) as BeatLane;
       notes.push({id:`r${round}-${index}-chord`, at, lane:partner, kind:'tap', duration:0});
     }
 
-    at += interval + (kind === 'double' ? DOUBLE_GAP : 0);
+    // A hold owns the hit line until its tail ends. The following note may land
+    // immediately on release, keeping the rhythm dense without requiring
+    // multi-touch input.
+    at += kind === 'hold' ? holdDuration : interval + (kind === 'double' ? DOUBLE_GAP : 0);
     index++;
   }
+
+  // Never end a round on a hold/release gesture. A decisive final tap is easier
+  // to read and cannot leave an iPhone player holding through the transition.
+  const last = notes.at(-1);
+  if (last?.kind === 'hold') notes[notes.length - 1] = {...last, kind:'tap', duration:0};
 
   return {approach:BEAT_APPROACH, duration, notes, round, subtitle:roundSubtitle(round, finalRound)};
 }

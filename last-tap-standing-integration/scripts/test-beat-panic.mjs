@@ -25,6 +25,28 @@ test('charts grow longer and add the promised rhythm grammar', () => {
   assert.match(final.subtitle, /PANIC MODE/);
 });
 
+test('holds never overlap another input and never finish a round', () => {
+  const charts = [
+    ...Array.from({length:7}, (_, index) => beatChartForRound(index + 1)),
+    beatChartForRound(7, true),
+  ];
+
+  for (const chart of charts) {
+    const last = chart.notes.at(-1);
+    assert.notEqual(last.kind, 'hold');
+
+    for (const hold of chart.notes.filter(note => note.kind === 'hold')) {
+      const overlapping = chart.notes.filter(note =>
+        note.id !== hold.id && note.at >= hold.at && note.at < hold.at + hold.duration
+      );
+      assert.deepEqual(overlapping, [], `${hold.id} overlaps another required input`);
+
+      const following = chart.notes.find(note => note.at > hold.at);
+      if (following) assert(following.at >= hold.at + hold.duration);
+    }
+  }
+});
+
 test('perfect taps, doubles and hold releases can score zero', () => {
   const chart = beatChartForRound(3);
   let score = freshBeatScore(chart);

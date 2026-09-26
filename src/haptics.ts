@@ -12,11 +12,29 @@ export type HapticCue =
 let lastHapticAt = 0;
 
 export function haptic(cue: HapticCue) {
-  if (Platform.OS === 'web') return;
-  const Haptics = require('expo-haptics') as typeof import('expo-haptics');
   const now = Date.now();
   if (now - lastHapticAt < 35) return;
   lastHapticAt = now;
+
+  if (Platform.OS === 'web') {
+    if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return;
+    const pattern =
+      cue === 'heavy' || cue === 'error'
+        ? [32, 24, 38]
+        : cue === 'success'
+          ? [18, 28, 34]
+          : cue === 'warning'
+            ? [26, 22, 26]
+            : cue === 'medium'
+              ? 24
+              : cue === 'selection'
+                ? 8
+                : 14;
+    try { navigator.vibrate(pattern); } catch { /* Unsupported web haptics stay silent. */ }
+    return;
+  }
+
+  const Haptics = require('expo-haptics') as typeof import('expo-haptics');
 
   const action =
     cue === 'selection'

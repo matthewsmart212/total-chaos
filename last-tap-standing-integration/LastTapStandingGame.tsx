@@ -336,6 +336,7 @@ function ResultsReveal({result, players, playerId, paused, revealed, onRevealed,
   const tableTop = 250;
   const tableHeight = Math.max(250, rows.length * rowHeight + 24);
   const {spotlightAt,stampAt,kickAt,end}=tapRevealTiming(rows.length,!!result.eliminatedId);
+  const badgeAt = stampAt - 1000;
   const {clock, now, reduced} = useMotionClock(end, paused, onRevealed, undefined, true);
   const done = revealed;
   const [remaining, setRemaining] = useState(5);
@@ -381,18 +382,18 @@ function ResultsReveal({result, players, playerId, paused, revealed, onRevealed,
         </Animated.View>
         <Animated.View testID="elimination-monster-group" style={{position:'absolute',left:68*m.sx,top:286*m.sy,width:254*m.sx,height:312*m.sy,alignItems:'center',justifyContent:'center',opacity:v([spotlightAt+100,spotlightAt+400,kickAt+650,kickAt+900],[0,1,1,0]),transform:reduced?[]:[{translateX:v([spotlightAt,kickAt,kickAt+850],[0,0,440*m.sx])},{translateY:v([spotlightAt,spotlightAt+600,kickAt,kickAt+300,kickAt+850],[65*m.sy,0,0,-60*m.sy,100*m.sy])},{scale:v([spotlightAt,spotlightAt+450,spotlightAt+650,kickAt,kickAt+850],[.55,1.06,1,1,.4])},{rotate:v([spotlightAt,kickAt-140,kickAt,kickAt+850],['0deg','0deg','-6deg','390deg'])}]}}>
           <Image testID="elimination-monster-cutout" source={eliminatedMonsters[loser]} resizeMode="contain" style={FILL}/>
-          <Animated.View testID="elimination-attached-badge" style={{position:'absolute',left:-48*m.sx,top:144*m.sy,width:350*m.sx,opacity:v([stampAt,stampAt+90],[0,1]),transform:reduced?[]:[{scale:v([stampAt,stampAt+160,stampAt+340],[1.5,.94,1])},{rotate:v([stampAt,stampAt+340],['-13deg','-7deg'])}]}}>
+          <Animated.View testID="elimination-attached-badge" style={{position:'absolute',left:-48*m.sx,top:144*m.sy,width:350*m.sx,opacity:v([badgeAt,badgeAt+90],[0,1]),transform:reduced?[]:[{scale:v([badgeAt,badgeAt+160,badgeAt+340],[1.5,.94,1])},{rotate:v([badgeAt,badgeAt+340],['-13deg','-7deg'])}]}}>
             <LinearGradient colors={['#ff5374','#f40935','#b60028']} style={{borderWidth:2*m.unit,borderColor:'#24000a',borderRadius:17*m.unit,padding:3*m.unit,boxShadow:`0 ${5*m.unit}px 0 #190009, 0 0 ${16*m.unit}px #ff174477`}}>
               <View style={{borderWidth:2*m.unit,borderColor:CREAM,borderRadius:12*m.unit,padding:3*m.unit}}><View style={{borderWidth:m.unit,borderColor:'#ff7e93',borderRadius:9*m.unit,paddingVertical:11*m.unit}}><Copy size={34} lines={1} style={{textShadowColor:'#5d0616',textShadowOffset:{width:0,height:3*m.unit},textShadowRadius:1}}>✕ ELIMINATED!</Copy></View></View>
             </LinearGradient>
           </Animated.View>
         </Animated.View>
-        <Animated.View style={{position:'absolute',left:24*m.sx,top:648*m.sy,width:342*m.sx,opacity:v([stampAt+300,stampAt+650,kickAt,kickAt+500],[0,1,1,0]),transform:reduced?[]:[{translateY:v([stampAt+300,stampAt+650,kickAt,kickAt+500],[15*m.sy,0,0,25*m.sy])}]}}>
+        <Animated.View style={{position:'absolute',left:24*m.sx,top:648*m.sy,width:342*m.sx,opacity:v([badgeAt+300,badgeAt+650,kickAt,kickAt+500],[0,1,1,0]),transform:reduced?[]:[{translateY:v([badgeAt+300,badgeAt+650,kickAt,kickAt+500],[15*m.sy,0,0,25*m.sy])}]}}>
           <Copy size={25} color="#ffafd0" lines={1}>{eliminationQuip(result.round).toUpperCase()}</Copy>
         </Animated.View>
         {!reduced && Array.from({length:10},(_,i)=>{
           const angle=i*Math.PI/5;
-          return <Animated.View key={i} style={{position:'absolute',left:195*m.sx,top:512*m.sy,width:6*m.unit,height:17*m.unit,borderRadius:3*m.unit,backgroundColor:i%2?CREAM:'#ff7496',opacity:v([stampAt,stampAt+80,stampAt+400,stampAt+650],[0,1,1,0]),transform:[{translateX:v([stampAt,stampAt+650],[0,Math.cos(angle)*195*m.sx])},{translateY:v([stampAt,stampAt+650],[0,Math.sin(angle)*120*m.sy])},{rotate:`${i*36}deg`}]}}/>;
+          return <Animated.View key={i} style={{position:'absolute',left:195*m.sx,top:512*m.sy,width:6*m.unit,height:17*m.unit,borderRadius:3*m.unit,backgroundColor:i%2?CREAM:'#ff7496',opacity:v([badgeAt,badgeAt+80,badgeAt+400,badgeAt+650],[0,1,1,0]),transform:[{translateX:v([badgeAt,badgeAt+650],[0,Math.cos(angle)*195*m.sx])},{translateY:v([badgeAt,badgeAt+650],[0,Math.sin(angle)*120*m.sy])},{rotate:`${i*36}deg`}]}}/>;
         })}
       </>}
       {showNext && <View testID="next-round-stage" style={StyleSheet.absoluteFill}>

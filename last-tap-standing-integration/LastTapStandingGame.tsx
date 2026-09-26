@@ -17,13 +17,14 @@ type Prediction = { pick: MonsterId | null; points: number };
 // Artwork is assembled in layers. Every card, name, time, countdown, X and
 // action is live React Native UI; no whole-screen mockup is used at runtime.
 export const LAST_TAP_ART = {
+  logo: require('./assets/last-tap/beat-panic-logo.webp'),
   beat: require('./assets/last-tap/beat-panic-background.png'),
   background: require('./assets/last-tap/background-clean.webp'),
   stage: require('./assets/last-tap/elimination-stage.webp'),
   crown: require('./assets/last-tap/finale-crown.webp'),
   finaleArena: require('./assets/last-tap/finale-arena.webp'),
   finaleBurst: require('./assets/last-tap/finale-burst.webp'),
-  welcome: require('./assets/last-tap/welcome-hero.webp'),
+  welcome: require('./assets/last-tap/beat-panic-hero.webp'),
   eliminated: require('./assets/last-tap/eliminated-scene.webp'),
 };
 const avatars: Record<MonsterId, ImageSourcePropType> = {
@@ -140,17 +141,21 @@ function SurvivalBar({ players, localId, y = 731 }: { players: TapPlayer[]; loca
     {players.map(p => <View key={p.id} accessibilityLabel={`${p.name}, ${p.eliminatedRound === null ? 'still standing' : 'eliminated'}`} style={{ flex: 1, minWidth: 0, alignItems: 'center', gap: 5 * m.unit }}><Avatar id={p.id} size={39 * m.unit} out={p.eliminatedRound !== null} selected={p.id === localId && p.eliminatedRound === null} /><Copy size={11.5} style={{width:'100%'}} color={p.eliminatedRound !== null ? '#c39296' : p.id === localId ? GOLD : CREAM} lines={1}>{p.name}</Copy></View>)}
   </Box>;
 }
-function Logo({ large = false }: { large?: boolean }) {
-  const m=useContext(Layout);
-  return <Box x={large?29:96} y={large?22:14} w={large?332:198} h={large?286:112} decorative>
-    <View style={{flex:1,alignItems:'center',justifyContent:'center',transform:[{rotate:'-2deg'}]}}>
-      <LinearGradient colors={['#ff7299','#ef1244','#970027']} style={{width:'96%',borderRadius:large?34*m.unit:20*m.unit,borderWidth:4*m.unit,borderColor:'#fff1ce',paddingVertical:(large?16:7)*m.unit,paddingHorizontal:10*m.unit,boxShadow:`0 ${8*m.unit}px 0 #26000b, 0 0 ${22*m.unit}px #ff336888`}}>
-        <Copy size={large?72:38} color="#fff7dc" lines={1} style={{textShadowColor:'#26000b',textShadowOffset:{width:0,height:5*m.unit},textShadowRadius:1}}>BEAT</Copy>
-        <Copy size={large?78:42} color={GOLD} lines={1} style={{marginTop:(large?-8:-5)*m.unit,textShadowColor:'#26000b',textShadowOffset:{width:0,height:5*m.unit},textShadowRadius:1}}>PANIC</Copy>
-      </LinearGradient>
-      <View style={{marginTop:(large?10:4)*m.unit,backgroundColor:'#26000bd9',borderRadius:16*m.unit,paddingHorizontal:16*m.unit,paddingVertical:4*m.unit}}><Copy size={large?18:11} color="#ff9dbc" style={{letterSpacing:2*m.unit}}>MISS THE BEAT. MEET DEFEAT.</Copy></View>
-    </View>
-  </Box>;
+function Logo({ large = false, compact = false }: { large?: boolean; compact?: boolean }) {
+  const logo = compact
+    ? {x:8,y:4,w:116,h:87}
+    : large
+      ? {x:8,y:8,w:374,h:280}
+      : {x:103,y:4,w:184,h:126};
+  const tagline = compact
+    ? null
+    : large
+      ? {x:70,y:244,w:250,h:30,size:14}
+      : {x:91,y:112,w:208,h:22,size:10};
+  return <>
+    <Box {...logo} decorative><Image accessibilityLabel="Beat Panic" source={LAST_TAP_ART.logo} resizeMode="contain" style={FILL}/></Box>
+    {tagline&&<Pill x={tagline.x} y={tagline.y} w={tagline.w} h={tagline.h}><Copy size={tagline.size} color="#ffb1ca" lines={1} style={{letterSpacing:1.5}}>MISS THE BEAT. MEET DEFEAT.</Copy></Pill>}
+  </>;
 }
 
 // Live lettering and enamel surfaces shared by the stage and watch party.
@@ -572,16 +577,17 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
         <ScreenMotion.Provider value={{clock:entry, enabled:!reducedMotion && phase !== 'playing'}}>
         <Animated.View pointerEvents={pageReady ? 'box-none' : 'none'} style={[StyleSheet.absoluteFill,{opacity:departure,transform:[{translateY:departure.interpolate({inputRange:[0,1],outputRange:[-6*metrics.unit,0]})}]}]}>
           {phase === 'welcome' ? <>
-            <Logo large /><Box x={34} y={353} w={322} h={31} decorative><Copy size={20} color="#ff99c4" style={{ transform: [{ rotate: '-3deg' }] }}>Four directions. One survivor.</Copy></Box>
-            <Art source={LAST_TAP_ART.welcome} x={20} y={384} w={350} h={176} />
-            <Pill x={27} y={565} w={336} h={60}>
+            <Logo large />
+            <Box x={34} y={286} w={322} h={31} decorative><Copy size={20} color="#fff3da" style={{ transform: [{ rotate: '-2deg' }], textShadowColor:'#560017',textShadowOffset:{width:0,height:2},textShadowRadius:2 }}>FOUR DIRECTIONS. ONE SURVIVOR.</Copy></Box>
+            <Art source={LAST_TAP_ART.welcome} x={35} y={313} w={320} h={246} />
+            <Pill x={27} y={566} w={336} h={60}>
               <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%', justifyContent: 'space-between', paddingHorizontal: 6 }}>
                 <Pressable accessibilityRole="button" accessibilityLabel="Remove pretend player" disabled={players.length <= 2} onPress={() => setPlayers(createTapPlayers(playerId, playerName, players.length - 2))} style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', opacity: players.length <= 2 ? 0.3 : 1 }}><Copy size={32}>−</Copy></Pressable>
                 <View><Copy size={17} color={GOLD}>TEST: {players.length - 1} PRETEND {players.length === 2 ? 'PLAYER' : 'PLAYERS'}</Copy><Copy size={13}>{players.length} total · {players.length - 1} {players.length === 2 ? 'elimination' : 'eliminations'}</Copy></View>
                 <Pressable accessibilityRole="button" accessibilityLabel="Add pretend player" disabled={players.length >= 8} onPress={() => setPlayers(createTapPlayers(playerId, playerName, players.length))} style={{ minWidth: 44, minHeight: 44, justifyContent: 'center', opacity: players.length >= 8 ? 0.3 : 1 }}><Copy size={32}>+</Copy></Pressable>
               </View>
             </Pill>
-            <Pill x={45} y={650} w={300} h={54}><Copy size={18} color={GOLD}>RHYTHM KNOCKOUT · 4 LANES</Copy></Pill>
+            <Pill x={45} y={647} w={300} h={54}><Copy size={18} color={GOLD}>RHYTHM KNOCKOUT · 4 LANES</Copy></Pill>
             <Button x={27} y={741} w={336} h={66} label="HOW TO PLAY" onPress={() => goPhase('rules')} />
 
           </> : phase === 'rules' ? <>
@@ -635,10 +641,9 @@ export default function LastTapStandingGame({ viewportWidth, viewportHeight, ent
 
             </>}
           </> : phase === 'target' || phase === 'playing' ? <>
-            <Logo />
-            <Pill x={126} y={92} w={244} h={32}><Copy size={17}>{active.length===2?'FINAL':`ROUND ${round}`} · {active.length} STANDING</Copy></Pill>
-            <Heading x={119} y={31} w={258} h={48} size={30}>BEAT PANIC</Heading>
-            <Box x={20} y={132} w={350} h={588}><BeatPanic soundOn={soundOn} key={`${round}-${phase}`} round={round} finalRound={active.length===2} sx={metrics.sx} sy={metrics.sy} preview={phase==='target'} paused={blocked||!pageReady} reduced={reducedMotion} monster={victoryPoses[playerId]} onComplete={finishRound}/></Box>
+            <Logo compact />
+            <Pill x={130} y={32} w={240} h={42}><Copy size={18}>{active.length===2?'FINAL':`ROUND ${round}`} · {active.length} STANDING</Copy></Pill>
+            <Box x={20} y={96} w={350} h={624}><BeatPanic soundOn={soundOn} key={`${round}-${phase}`} round={round} finalRound={active.length===2} sx={metrics.sx} sy={metrics.sy} preview={phase==='target'} paused={blocked||!pageReady} reduced={reducedMotion} monster={victoryPoses[playerId]} onComplete={finishRound}/></Box>
             {phase==='target'&&<Pill x={62} y={677} w={266} h={42}><Copy size={24} color={GOLD}>STARTS IN {Math.ceil(seconds)}</Copy></Pill>}
             <SurvivalBar players={players} localId={playerId} y={731}/>
 

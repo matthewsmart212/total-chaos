@@ -101,7 +101,7 @@ test('active preview and play screens use the Beat Panic arena', () => {
     assert(observed.some(node => node.testID === `beat-panic-${phase}`));
     assert(observed.some(node => node.testID === 'beat-panic-arena'));
     assert.equal(observed.filter(node => node.testID?.startsWith('beat-tap-')).length,4);
-    assert(html.includes('BEAT PANIC'));
+    assert(observed.some(node => node.kind === 'Image' && node.accessibilityLabel === 'Beat Panic'));
   }
 });
 
